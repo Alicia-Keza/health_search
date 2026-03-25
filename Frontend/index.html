@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediSearch</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">+</span>
+        <strong class="logo-name">MediSearch</strong>
+      </div>
+      <nav>
+        <button class="tab-btn active" id="btn-disease" onclick="switchTab('disease', this)">Disease Search</button>
+        <button class="tab-btn"        id="btn-symptom" onclick="switchTab('symptom', this)">Symptom Checker</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- TAB 1: DISEASE SEARCH -->
+    <section class="tab-panel active" id="tab-disease">
+
+      <div class="page-head">
+        <h1>Disease Search</h1>
+        <p>Search the WHO ICD-11 global disease database for definitions, codes, and related medicines.</p>
+      </div>
+
+      <div class="search-row">
+        <input
+          id="disease-input"
+          class="text-input"
+          type="text"
+          placeholder="e.g. Malaria, Diabetes, Tuberculosis…"
+          onkeydown="if(event.key==='Enter') searchDisease()"
+        />
+        <button class="btn" id="search-btn" onclick="searchDisease()">Search</button>
+      </div>
+
+      <div class="chips-row">
+        <span class="chip-label">Quick:</span>
+        <span class="chip" onclick="quickSearch('Malaria')">Malaria</span>
+        <span class="chip" onclick="quickSearch('Diabetes')">Diabetes</span>
+        <span class="chip" onclick="quickSearch('Hypertension')">Hypertension</span>
+        <span class="chip" onclick="quickSearch('Tuberculosis')">Tuberculosis</span>
+        <span class="chip" onclick="quickSearch('Asthma')">Asthma</span>
+        <span class="chip" onclick="quickSearch('Pneumonia')">Pneumonia</span>
+        <span class="chip" onclick="quickSearch('HIV')">HIV</span>
+      </div>
+
+      <p class="loader" id="d-loader">Searching WHO ICD-11…</p>
+      <div class="error-msg" id="d-error"></div>
+
+      <div id="disease-results">
+        <p class="placeholder">Enter a disease name above to get started.</p>
+      </div>
+
+    </section>
+
+    <!-- TAB 2: SYMPTOM CHECKER -->
+    <section class="tab-panel" id="tab-symptom">
+
+      <div class="page-head">
+        <h1>Symptom Checker</h1>
+        <p>Select your symptoms to find possible conditions. Powered by ApiMedic.</p>
+      </div>
+
+      <div class="sym-form">
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="gender-sel">Biological Sex</label>
+            <select class="text-input" id="gender-sel">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="birth-yr">Year of Birth</label>
+            <input class="text-input" id="birth-yr" type="number" min="1920" max="2025" value="1990" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="sym-filter">Filter Symptoms</label>
+          <input
+            class="text-input"
+            id="sym-filter"
+            type="text"
+            placeholder="Type to filter…"
+            oninput="filterSymptoms()"
+          />
+        </div>
+
+        <p class="sym-count" id="sym-count">No symptoms selected.</p>
+
+        <div class="sym-grid" id="sym-grid">
+          <span class="placeholder">Loading symptoms…</span>
+        </div>
+
+        <button class="btn btn-block" id="dx-btn" onclick="runDiagnosis()" disabled>
+          Check Symptoms
+        </button>
+
+      </div>
+
+      <p class="loader" id="dx-loader">Analysing symptoms…</p>
+      <div class="error-msg" id="dx-error"></div>
+      <div id="dx-results"></div>
+
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>For educational use only — not a substitute for professional medical advice.</p>
+    <p class="footer-apis">
+      Data:
+      <a href="https://icd.who.int/icdapi" target="_blank" rel="noopener">WHO ICD-11</a> ·
+      <a href="https://open.fda.gov/apis/" target="_blank" rel="noopener">OpenFDA</a> ·
+      <a href="https://apimedic.com"       target="_blank" rel="noopener">ApiMedic</a>
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
