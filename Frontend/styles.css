@@ -1,6 +1,8 @@
-/*style.css */
+/* ============================================================
+   MediSearch — styles.css  (complete)
+   ============================================================ */
 
-/* Reset  */
+/* ── Reset ── */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -12,7 +14,9 @@ body {
   min-height: 100vh;
 }
 
-/* HEADER */
+/* ══════════════════════════════════════
+   HEADER
+══════════════════════════════════════ */
 header { background: #fff; border-bottom: 2px solid #1a1a1a; }
 
 .header-inner {
@@ -49,7 +53,9 @@ nav { display: flex; gap: 4px; }
 .tab-btn:hover  { border-color: #1a1a1a; color: #1a1a1a; }
 .tab-btn.active { background: #1a1a1a; border-color: #1a1a1a; color: #fff; }
 
-/* LAYOUT*/
+/* ══════════════════════════════════════
+   LAYOUT
+══════════════════════════════════════ */
 main { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 .tab-panel        { display: none; }
 .tab-panel.active { display: block; }
