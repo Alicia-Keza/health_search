@@ -113,46 +113,54 @@ function renderDiseaseCard(hit) {
 
   // Fetch full entity details if we have an id URI
   if (hit.id) {
-    loadEntityDetails(hit.id, cardId, title);
+    loadEntityDetails(hit.id, cardId);
   } else {
     card.querySelector('.d-loading-detail').remove();
   }
 }
 
-async function loadEntityDetails(uri, cardId, title) {
+async function loadEntityDetails(uri, cardId) {
   try {
     const res  = await fetch(`/api/icd/entity?uri=${encodeURIComponent(uri)}`);
     const data = await res.json();
     const card = $(cardId);
     if (!card) return;
 
-    const defn     = stripHtml(data.definition?.['@value'] || data.definition || '');
-    const note     = stripHtml(data.longDefinition?.['@value'] || data.longDefinition || '');
-    const chapter  = stripHtml(data.classKind || '');
-    const synonyms = (data.synonym || data.inclusion || [])
-      .map(s => stripHtml(s?.label?.['@value'] || s?.label || (typeof s === 'string' ? s : '')))
-      .filter(Boolean).slice(0, 10);
+    // ICD-11 entity fields use {'@language':'en','@value':'...'} format
+    const val  = (f) => (f && typeof f === 'object') ? (f['@value'] || '') : (f || '');
+    const defn = stripHtml(val(data.definition));
+    const note = stripHtml(val(data.longDefinition));
 
-    // Also try coded elsewhere / exclusion notes
+    // Synonyms: indexTerm is the richest list; fall back to inclusion
+    const termList = (data.indexTerm?.length ? data.indexTerm : (data.inclusion || []));
+    const synonyms = termList
+      .map(s => stripHtml(val(s?.label)))
+      .filter(Boolean)
+      .filter((s, i, a) => a.indexOf(s) === i)   // deduplicate
+      .slice(0, 12);
+
     const exclusions = (data.exclusion || [])
-      .map(e => stripHtml(e?.label?.['@value'] || ''))
+      .map(e => stripHtml(val(e?.label)))
       .filter(Boolean).slice(0, 5);
 
     let html = '';
-    if (defn)  html += `<div class="d-section-label">Definition</div><p class="d-text">${esc(defn)}</p>`;
-    if (note)  html += `<div class="d-section-label">Clinical Notes</div><p class="d-text">${esc(note)}</p>`;
+    if (defn) html += `<div class="d-section-label">Definition</div><p class="d-text">${esc(defn)}</p>`;
+    if (note) html += `<div class="d-section-label">Clinical Notes</div><p class="d-text">${esc(note)}</p>`;
     if (synonyms.length) html += `
-      <div class="d-section-label">Also Known As</div>
+      <div class="d-section-label">Also Known As / Index Terms</div>
       <div class="d-synonyms">${synonyms.map(s => `<span class="syn-tag">${esc(s)}</span>`).join('')}</div>`;
     if (exclusions.length) html += `
       <div class="d-section-label">Excludes</div>
       <div class="d-synonyms">${exclusions.map(s => `<span class="syn-tag">${esc(s)}</span>`).join('')}</div>`;
-    if (!html) html = `<p class="d-text" style="color:#bbb;font-style:italic">No additional details available.</p>`;
+    if (!html) html = `<p class="d-text" style="color:#bbb;font-style:italic">No additional details available for this entry.</p>`;
 
     card.querySelector('.d-details-body').innerHTML = html;
   } catch (_) {
     const card = $(cardId);
-    if (card) card.querySelector('.d-loading-detail')?.remove();
+    if (card) {
+      const body = card.querySelector('.d-details-body');
+      if (body) body.innerHTML = '<p class="d-text" style="color:#bbb;font-style:italic">Could not load details.</p>';
+    }
   }
 }
 
