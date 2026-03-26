@@ -93,23 +93,32 @@ app.get('/api/disease-info', async (req, res) => {
     const secData    = await fetch(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=sections&format=json`, { headers: h }).then(r => r.json());
     const symSection = (secData.parse?.sections || []).find(s => ['signs and symptoms', 'symptoms'].some(k => s.line.toLowerCase().includes(k)));
 
-    // 4 — Extract <li> items from symptoms section HTML, filter out citations/references
+    // 4 — Extract symptoms from section HTML
     let symptoms = [];
     if (symSection) {
       const htmlData = await fetch(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=text&section=${symSection.index}&format=json`, { headers: h }).then(r => r.json());
       const html = htmlData.parse?.text?.['*'] || '';
-      // Remove the references/footnotes block before extracting items
+      // Remove reference footnotes block first
       const cleanHtml = html.replace(/<ol class="references">[\s\S]*?<\/ol>/gi, '');
-      symptoms = [...cleanHtml.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+
+      // Try bullet <li> items first
+      const liItems = [...cleanHtml.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
         .map(m => stripTags(m[1]).trim())
-        .filter(s =>
-          s.length > 5 && s.length < 200 &&
-          !s.startsWith('^') &&
-          !s.includes('Cite error') &&
-          !s.includes('Retrieved') &&
-          !s.match(/^https?:\/\//)
-        )
-        .slice(0, 8);
+        .filter(s => s.length > 5 && s.length < 200 && !s.startsWith('^') && !s.includes('Cite error') && !s.includes('Retrieved'));
+
+      if (liItems.length) {
+        symptoms = liItems.slice(0, 8);
+      } else {
+        // Fallback: extract comma-separated list from first paragraph prose
+        const paras = [...cleanHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map(m => stripTags(m[1]).replace(/\[[\d,\s]+\]/g, '').trim()).filter(s => s.length > 30);
+        for (const para of paras.slice(0, 3)) {
+          const m = para.match(/\b(?:include|includes|are|such as|including)\s+([^.;]+)/i);
+          if (m) {
+            symptoms = m[1].split(/,\s*(?:and\s+)?|\s+and\s+/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 60).slice(0, 8);
+            if (symptoms.length >= 2) break;
+          }
+        }
+      }
     }
 
     res.json({ title: pageTitle, description, symptoms });
