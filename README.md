@@ -8,7 +8,7 @@ A medical disease and symptom search web application built with Node.js, Express
 
 | Server | URL | Role |
 |--------|-----|------|
-| Load Balancer | http://44.210.131.60 | Main entry point — share this |
+| Load Balancer | https://healthsearch.aliciak.tech | Main entry point — share this |
 | Web01 | http://54.152.40.73 | Direct access |
 | Web02 | http://3.89.112.68 | Direct access |
 
@@ -18,10 +18,10 @@ A medical disease and symptom search web application built with Node.js, Express
 
 ## Features
 
-- **Disease Search** — Search the WHO ICD-11 global disease database by name. Returns the ICD-11 code, definition, chapter, clinical notes, and synonyms.
-- **Medicine Lookup** — Each disease result automatically fetches related FDA-listed drugs from OpenFDA.
-- **Symptom Checker** — Type one or more symptoms (comma-separated or one at a time) and get an AI-powered analysis of possible conditions with descriptions and recommendations.
-- **View Full Info** — Any result from the Symptom Checker links directly into the Disease Search tab.
+- **Disease Search** — Search the WHO ICD-11 global disease database by name. Returns the ICD-11 code, a short description, symptoms, and related medications.
+- **Medicine Lookup** — Each disease result automatically fetches related FDA-listed drugs from OpenFDA and displays them as a bullet list.
+- **Symptom Checker** — Select symptoms from a categorised checklist (General, Respiratory, Digestive, etc.) or type in any symptom not listed. Submit for an AI-powered analysis of possible conditions with descriptions and recommendations.
+- **View in Disease Search** — Any condition returned by the Symptom Checker has a button that jumps directly to the Disease Search tab and looks it up.
 
 ---
 
@@ -29,7 +29,8 @@ A medical disease and symptom search web application built with Node.js, Express
 
 | API | Purpose | Documentation |
 |-----|---------|---------------|
-| WHO ICD-11 | Disease definitions, ICD-11 codes, synonyms | https://icd.who.int/icdapi |
+| WHO ICD-11 | Disease search and ICD-11 codes | https://icd.who.int/icdapi |
+| Wikipedia REST API | Disease descriptions and symptom sections | https://en.wikipedia.org/api/rest_v1/ |
 | OpenFDA | Drug label and medicine data | https://open.fda.gov/apis/drug/label/ |
 | AI Medical Diagnosis API (RapidAPI) | AI-powered symptom analysis and condition matching | https://rapidapi.com/bilgisamapi-api2/api/ai-medical-diagnosis-api-symptoms-to-results |
 
@@ -326,5 +327,6 @@ Hardcoding keys in `script.js` would expose them in the public repository. The s
 ## Credits
 
 - [WHO ICD-11 API](https://icd.who.int/icdapi) — World Health Organization
+- [Wikipedia REST API](https://en.wikipedia.org/api/rest_v1/) — Wikimedia Foundation
 - [OpenFDA](https://open.fda.gov) — U.S. Food & Drug Administration
 - [AI Medical Diagnosis API](https://rapidapi.com/bilgisamapi-api2/api/ai-medical-diagnosis-api-symptoms-to-results) — bilgisamapi via RapidAPI
