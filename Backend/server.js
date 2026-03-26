@@ -79,8 +79,13 @@ app.get('/api/disease-info', async (req, res) => {
   if (!name) return res.status(400).json({ error: 'Missing name' });
   const h = { 'User-Agent': 'HealthSearch/1.0 (educational project)' };
   try {
-    // 1 — Find Wikipedia article
-    const searchData = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&srlimit=1`, { headers: h }).then(r => r.json());
+    // 1 — Find Wikipedia article (strip ICD qualifiers before searching)
+    const cleanName = name
+      .replace(/,\s*(type\s+)?(un)?specified.*/i, '')
+      .replace(/\s+without\s+.*/i, '')
+      .replace(/\s+with\s+.*/i, '')
+      .trim();
+    const searchData = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanName)}&format=json&srlimit=1`, { headers: h }).then(r => r.json());
     const pageTitle  = searchData.query?.search?.[0]?.title;
     if (!pageTitle) return res.json({ notFound: true });
 
