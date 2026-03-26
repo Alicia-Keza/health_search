@@ -91,112 +91,82 @@ function renderDiseaseCard(hit) {
   const wrap  = $('disease-results');
   const title = stripHtml(hit.title || '');
   const code  = hit.theCode || '';
-  const cardId  = 'card-' + (code || title.replace(/\W/g, '').slice(0, 12));
-  const fdaId   = 'fda-'  + (code || title.replace(/\W/g, '').slice(0, 12));
-  const aiId    = 'ai-'   + (code || title.replace(/\W/g, '').slice(0, 12));
+  const slug    = code || title.replace(/\W/g, '').slice(0, 12);
+  const aboutId = 'about-'    + slug;
+  const symId   = 'sym-'      + slug;
+  const fdaId   = 'fda-'      + slug;
 
   const card = document.createElement('div');
   card.className = 'disease-card';
-  card.id = cardId;
   card.innerHTML = `
     <div class="d-name">${esc(title)}</div>
     ${code ? `<span class="d-code">ICD-11: ${esc(code)}</span>` : ''}
-    <div class="ai-info-block" id="${aiId}">
-      <p style="color:#bbb;font-size:.85rem;font-style:italic;margin-top:.5rem">Loading…</p>
+    <div id="${aboutId}" class="d-about-block">
+      <p class="d-loading">Loading description…</p>
     </div>
-    <div class="fda-block" id="${fdaId}">
-      <div class="fda-heading">💊 Medication (OpenFDA)</div>
-      <p style="font-size:.82rem;color:#bbb;font-style:italic">Loading…</p>
+    <div id="${symId}" class="d-sym-block">
+      <p class="d-loading">Loading symptoms…</p>
+    </div>
+    <div id="${fdaId}" class="d-fda-block">
+      <p class="d-loading">Loading medication…</p>
     </div>
   `;
 
   wrap.appendChild(card);
-  loadAIInfo(title, aiId);
+
+  // Description → ICD-11 entity definition
+  if (hit.id) loadDescription(hit.id, aboutId);
+  else $(aboutId).innerHTML = '';
+
+  // Symptoms → Wikipedia HTML
+  loadSymptoms(title, symId);
+
+  // Medication → OpenFDA
   loadFDA(title, fdaId);
 }
 
 /* ══════════════════════════════════════
-   WIKIPEDIA MEDICAL INFO  →  GET /api/disease-info
+   DESCRIPTION  →  ICD-11 entity definition
 ══════════════════════════════════════ */
-
-async function loadAIInfo(diseaseName, sectionId) {
+async function loadDescription(uri, sectionId) {
+  const sec = $(sectionId);
   try {
-    const res  = await fetch(`/api/disease-info?name=${encodeURIComponent(diseaseName)}`);
+    const res  = await fetch(`/api/icd/entity?uri=${encodeURIComponent(uri)}`);
     const data = await res.json();
-    const sec  = $(sectionId);
     if (!sec) return;
 
-    if (!res.ok || data.notFound) {
-      sec.innerHTML = '<div class="ai-divider"></div><p class="d-text" style="color:#bbb;font-style:italic">No additional information found for this condition.</p>';
-      return;
-    }
+    const val  = (f) => (f && typeof f === 'object') ? (f['@value'] || '') : (f || '');
+    const defn = stripHtml(val(data.definition) || val(data.longDefinition));
 
-    let html = '<div class="ai-divider"></div>';
-
-    if (data.description) {
-      html += `<div class="d-section-label">About</div>
-               <p class="d-text">${esc(data.description)}</p>`;
-    }
-
-    if (data.symptoms?.length) {
-      html += `<div class="d-section-label">🤒 Symptoms</div>
-               <ul class="ai-list">${data.symptoms.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`;
-    }
-
-    if (data.medication?.length) {
-      html += `<div class="d-section-label">💊 Medication</div>
-               <ul class="ai-list">${data.medication.map(m => `<li>${esc(m)}</li>`).join('')}</ul>`;
-    }
-
-    sec.innerHTML = html;
+    sec.innerHTML = defn
+      ? `<div class="d-section-label">About</div><p class="d-text">${esc(defn)}</p>`
+      : '';
   } catch (_) {
-    const sec = $(sectionId);
     if (sec) sec.innerHTML = '';
   }
 }
 
-async function loadEntityDetails(uri, cardId) {
+/* ══════════════════════════════════════
+   SYMPTOMS  →  Wikipedia HTML list items
+══════════════════════════════════════ */
+async function loadSymptoms(diseaseName, sectionId) {
+  const sec = $(sectionId);
   try {
-    const res  = await fetch(`/api/icd/entity?uri=${encodeURIComponent(uri)}`);
+    const res  = await fetch(`/api/disease-info?name=${encodeURIComponent(diseaseName)}`);
     const data = await res.json();
-    const card = $(cardId);
-    if (!card) return;
+    if (!sec) return;
 
-    // ICD-11 entity fields use {'@language':'en','@value':'...'} format
-    const val  = (f) => (f && typeof f === 'object') ? (f['@value'] || '') : (f || '');
-    const defn = stripHtml(val(data.definition));
-    const note = stripHtml(val(data.longDefinition));
-
-    // Synonyms: indexTerm is the richest list; fall back to inclusion
-    const termList = (data.indexTerm?.length ? data.indexTerm : (data.inclusion || []));
-    const synonyms = termList
-      .map(s => stripHtml(val(s?.label)))
-      .filter(Boolean)
-      .filter((s, i, a) => a.indexOf(s) === i)   // deduplicate
-      .slice(0, 12);
-
-    const exclusions = (data.exclusion || [])
-      .map(e => stripHtml(val(e?.label)))
-      .filter(Boolean).slice(0, 5);
-
-    let html = '';
-    if (defn) html += `<div class="d-section-label">Definition</div><p class="d-text">${esc(defn)}</p>`;
-    if (note) html += `<div class="d-section-label">Clinical Notes</div><p class="d-text">${esc(note)}</p>`;
-    if (synonyms.length) html += `
-      <div class="d-section-label">Also Known As / Index Terms</div>
-      <div class="d-synonyms">${synonyms.map(s => `<span class="syn-tag">${esc(s)}</span>`).join('')}</div>`;
-    if (exclusions.length) html += `
-      <div class="d-section-label">Excludes</div>
-      <div class="d-synonyms">${exclusions.map(s => `<span class="syn-tag">${esc(s)}</span>`).join('')}</div>`;
-    if (!html) html = `<p class="d-text" style="color:#bbb;font-style:italic">No additional details available for this entry.</p>`;
-
-    card.querySelector('.d-details-body').innerHTML = html;
-  } catch (_) {
-    const card = $(cardId);
-    if (card) {
-      const body = card.querySelector('.d-details-body');
-      if (body) body.innerHTML = '<p class="d-text" style="color:#bbb;font-style:italic">Could not load details.</p>';
+    if (!res.ok || data.notFound || !data.symptoms?.length) {
+      sec.innerHTML = '';
+      return;
     }
+
+    sec.innerHTML = `
+      <div class="d-section-label">🤒 Symptoms</div>
+      <ul class="ai-list">${data.symptoms.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+    `;
+  } catch (_) {
+    if (sec) sec.innerHTML = '';
   }
 }
 
@@ -204,35 +174,35 @@ async function loadEntityDetails(uri, cardId) {
    OPENFDA DRUGS  →  GET /api/drugs
 ══════════════════════════════════════ */
 async function loadFDA(query, sectionId) {
+  const section = $(sectionId);
   try {
-    const res     = await fetch(`/api/drugs?q=${encodeURIComponent(query)}`);
-    const data    = await res.json();
-    const section = $(sectionId);
+    const res  = await fetch(`/api/drugs?q=${encodeURIComponent(query)}`);
+    const data = await res.json();
     if (!section) return;
 
     if (!res.ok || !data.results?.length) {
-      section.querySelector('p').textContent = 'No FDA drug data found for this condition.';
+      section.innerHTML = '';
       return;
     }
 
+    const names = [];
+    data.results.forEach(drug => {
+      const brand   = drug.openfda?.brand_name?.[0];
+      const generic = drug.openfda?.generic_name?.[0];
+      if (brand)   names.push(brand);
+      if (generic && generic !== brand) names.push(generic);
+    });
+
+    const unique = [...new Set(names)].slice(0, 6);
+    if (!unique.length) { section.innerHTML = ''; return; }
+
     section.innerHTML = `
-      <div class="fda-heading">💊 Related Medicines (OpenFDA)</div>
-      ${data.results.map(drug => {
-        const brand   = drug.openfda?.brand_name?.slice(0, 2).join(' / ') || 'Unknown Brand';
-        const generic = drug.openfda?.generic_name?.[0] || '';
-        const use     = drug.indications_and_usage?.[0]?.substring(0, 200) || '';
-        return `
-          <div class="drug-card">
-            <div class="drug-brand">${esc(brand)}</div>
-            ${generic ? `<div class="drug-generic">Generic: ${esc(generic)}</div>` : ''}
-            ${use     ? `<div class="drug-use">${esc(use)}${use.length >= 200 ? '…' : ''}</div>` : ''}
-          </div>`;
-      }).join('')}
-      <p class="fda-note">Source: OpenFDA. Consult a licensed doctor before taking any medication.</p>
+      <div class="d-section-label">💊 Medication</div>
+      <ul class="ai-list">${unique.map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+      <p class="fda-note">Source: OpenFDA. Always consult a doctor before taking any medication.</p>
     `;
   } catch (_) {
-    const section = $(sectionId);
-    if (section) section.querySelector('p').textContent = 'Could not load drug data.';
+    if (section) section.innerHTML = '';
   }
 }
 

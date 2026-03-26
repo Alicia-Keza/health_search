@@ -153,74 +153,13 @@ app.post('/api/diagnosis', async (req, res) => {
    Fetches summary + Signs/Treatment/Prevention/Complications
    from Wikipedia — completely free, no API key required.
 ══════════════════════════════════════════════════════════ */
-// Strip wiki markup from a plain string
-function cleanWikiText(raw = '') {
-  return raw
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')
-    .replace(/<ref[^/]*\/>/gi, '')
-    .replace(/\[\[(File|Image):[^\n]*/gi, '')
-    .replace(/\{\{[^}]*\}\}/g, '')
-    .replace(/\[\[(?:[^\]|]*\|)+([^\]|]+)\]\]/g, '$1')
-    .replace(/\[\[([^\]|]+)\]\]/g, '$1')
-    .replace(/\]\]/g, '').replace(/\[\[/g, '')
-    .replace(/'''?/g, '')
-    .replace(/\[\d+\]/g, '')
+// Strip HTML tags and citation brackets from a string
+function stripTags(html = '') {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/\[[\d\s,]+\]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-// Truncate plain text to N full sentences
-function toSentences(text, max = 2) {
-  const sentences = (text.match(/[^.!?]+[.!?]+/g) || [])
-    .map(s => s.trim()).filter(s => s.length > 20);
-  return sentences.slice(0, max).join(' ').trim() || text.substring(0, 200).trim();
-}
-
-// Extract the medical infobox from wikitext and return its fields
-function extractInfoboxFields(wikitext) {
-  const startMatch = wikitext.match(/\{\{[Ii]nfobox\s+medical/i);
-  if (!startMatch) return {};
-  let depth = 0, end = startMatch.index;
-  for (let i = startMatch.index; i < wikitext.length - 1; i++) {
-    if (wikitext[i] === '{' && wikitext[i + 1] === '{') { depth++; i++; }
-    else if (wikitext[i] === '}' && wikitext[i + 1] === '}') {
-      depth--;
-      if (depth === 0) { end = i + 2; break; }
-      i++;
-    }
-  }
-  const body = wikitext.substring(startMatch.index + 2, end - 2);
-  const fields = {};
-  let field = null, value = '';
-  for (const line of body.split('\n')) {
-    const m = line.match(/^\|\s*([\w\s]+?)\s*=\s*(.*)/);
-    if (m) {
-      if (field) fields[field] = value.trim();
-      field = m[1].toLowerCase().trim();
-      value = m[2];
-    } else if (field) {
-      value += ' ' + line.trim();
-    }
-  }
-  if (field) fields[field] = value.trim();
-  return fields;
-}
-
-// Parse a wikitext list field into a clean string array
-function parseListField(raw = '') {
-  if (!raw) return [];
-  // Handle {{plainlist|...}} or {{ubl|...}}
-  const tplMatch = raw.match(/\{\{(?:plainlist|ubl|ublist|hlist)\s*\|([\s\S]*?)\}\}/i);
-  if (tplMatch) {
-    return tplMatch[1].split(/\n\*\s*|\|\s*/)
-      .map(s => cleanWikiText(s).trim()).filter(s => s.length > 2).slice(0, 8);
-  }
-  // Handle * bullet lines
-  const bullets = [...raw.matchAll(/^\*+\s*(.+)/gm)].map(m => cleanWikiText(m[1]).trim()).filter(s => s.length > 2);
-  if (bullets.length) return bullets.slice(0, 8);
-  // Fall back to comma-separated
-  return raw.split(/,|;/).map(s => cleanWikiText(s).trim()).filter(s => s.length > 2).slice(0, 8);
 }
 
 app.get('/api/disease-info', async (req, res) => {
@@ -231,31 +170,45 @@ app.get('/api/disease-info', async (req, res) => {
 
   try {
     // 1 — Find best matching Wikipedia article
-    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&srlimit=1`;
-    const searchData = await fetch(searchUrl, { headers }).then(r => r.json());
-    const pageTitle  = searchData.query?.search?.[0]?.title;
+    const searchData = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&srlimit=1`,
+      { headers }
+    ).then(r => r.json());
+    const pageTitle = searchData.query?.search?.[0]?.title;
     if (!pageTitle) return res.json({ notFound: true });
 
-    // 2 — Fetch short description + lead section wikitext (contains infobox) in parallel
-    const [summaryData, wikiData] = await Promise.all([
-      fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`,
-        { headers: { ...headers, Accept: 'application/json' } }).then(r => r.json()),
-      fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&rvsection=0&titles=${encodeURIComponent(pageTitle)}&format=json`,
-        { headers }).then(r => r.json()),
-    ]);
+    // 2 — Get section list to find the symptoms section
+    const secData = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=sections&format=json`,
+      { headers }
+    ).then(r => r.json());
 
-    const description = toSentences(summaryData.extract || '', 2);
-    const wikitext    = Object.values(wikiData.query?.pages || {})[0]?.revisions?.[0]?.['*'] || '';
+    const sections = secData.parse?.sections || [];
+    const symSection = sections.find(s =>
+      ['signs and symptoms', 'symptoms'].some(k => s.line.toLowerCase().includes(k))
+    );
 
-    // 3 — Parse infobox fields
-    const fields     = extractInfoboxFields(wikitext);
-    const symptoms   = parseListField(fields.symptoms   || fields['signs and symptoms'] || '');
-    const medication = parseListField(fields.medication || fields.treatment             || fields.medications || '');
+    // 3 — Fetch the HTML of the symptoms section
+    let symptoms = [];
+    if (symSection) {
+      const htmlData = await fetch(
+        `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=text&section=${symSection.index}&format=json`,
+        { headers }
+      ).then(r => r.json());
 
-    res.json({ title: pageTitle, description, symptoms, medication });
+      const html = htmlData.parse?.text?.['*'] || '';
+      // Extract <li> items from the HTML — reliable, no markup issues
+      const matches = [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)];
+      symptoms = matches
+        .map(m => stripTags(m[1]).trim())
+        .filter(s => s.length > 4 && s.length < 200)
+        .slice(0, 8);
+    }
+
+    res.json({ title: pageTitle, symptoms });
 
   } catch (e) {
-    console.error('[DiseaseInfo/Wikipedia]', e.message);
+    console.error('[DiseaseInfo]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
