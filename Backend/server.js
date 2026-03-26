@@ -54,18 +54,28 @@ app.get('/api/icd/entity', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-/* ── Symptom Checker (RapidAPI) ── */
+/* ── Symptom Checker (ICD-11) ── */
 app.post('/api/diagnosis', async (req, res) => {
-  const { symptoms, gender, age } = req.body;
-  if (!symptoms?.length || !gender) return res.status(400).json({ error: 'Missing symptoms or gender' });
+  const { symptoms } = req.body;
+  if (!symptoms?.length) return res.status(400).json({ error: 'Missing symptoms' });
   try {
-    const r = await fetch('https://ai-medical-diagnosis-api-symptoms-to-results.p.rapidapi.com/analyzeSymptomsAndDiagnose?noqueue=1', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-rapidapi-key': process.env.RAPIDAPI_KEY, 'x-rapidapi-host': 'ai-medical-diagnosis-api-symptoms-to-results.p.rapidapi.com' },
-      body: JSON.stringify({ symptoms, patientInfo: { age: age || 30, gender }, lang: 'en' }),
-    });
-    if (!r.ok) throw new Error(`Diagnosis API error (${r.status})`);
-    res.json(await r.json());
+    const headers = await icdHeaders();
+    // Search ICD-11 for each symptom, collect unique conditions
+    const seen = new Set();
+    const conditions = [];
+    for (const symptom of symptoms.slice(0, 6)) {
+      const r = await fetch(`https://id.who.int/icd/release/11/2024-01/mms/search?q=${encodeURIComponent(symptom)}&useFlexisearch=true&flatResults=true`, { headers });
+      if (!r.ok) continue;
+      const data = await r.json();
+      for (const hit of (data.destinationEntities || []).slice(0, 3)) {
+        const name = hit.title?.replace(/<[^>]+>/g, '').trim();
+        if (name && !seen.has(name.toLowerCase())) {
+          seen.add(name.toLowerCase());
+          conditions.push({ name, description: hit.definition || '', probability: 'Possible' });
+        }
+      }
+    }
+    res.json({ conditions: conditions.slice(0, 8) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
