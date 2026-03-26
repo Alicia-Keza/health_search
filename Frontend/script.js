@@ -154,13 +154,16 @@ async function loadAIInfo(diseaseName, sectionId) {
 
       html += `<div class="d-section-label">${icon} ${label}</div>`;
 
-      if (asList && items.length) {
-        // Bullet list
-        html += `<ul class="ai-list">${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+      if (asList) {
+        // Use extracted bullet items, or split prose into sentences as fallback
+        const bullets = items.length
+          ? items
+          : (text.match(/[^.!?]+[.!?]+/g) || []).map(s => s.trim()).filter(s => s.length > 15);
+        if (bullets.length) {
+          html += `<ul class="ai-list">${bullets.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+        }
       } else if (text) {
-        // Short paragraph
-        const isComplication = label.includes('Doctor');
-        html += `<p class="d-text${isComplication ? ' ai-complication' : ''}">${esc(text)}</p>`;
+        html += `<p class="d-text">${esc(text)}</p>`;
       }
     });
 
