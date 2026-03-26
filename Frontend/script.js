@@ -119,11 +119,6 @@ function renderDiseaseCard(hit) {
    WIKIPEDIA MEDICAL INFO  →  GET /api/disease-info
 ══════════════════════════════════════ */
 
-// Only show description + symptoms
-const SECTION_CONFIG = [
-  { keys: ['signs and symptoms', 'symptoms'], label: 'Symptoms', icon: '🤒', asList: true },
-];
-
 async function loadAIInfo(diseaseName, sectionId) {
   try {
     const res  = await fetch(`/api/disease-info?name=${encodeURIComponent(diseaseName)}`);
@@ -138,34 +133,20 @@ async function loadAIInfo(diseaseName, sectionId) {
 
     let html = '<div class="ai-divider"></div>';
 
-    // Short 2-sentence overview
-    if (data.overview) {
-      html += `<div class="d-section-label">About</div><p class="d-text">${esc(data.overview)}</p>`;
+    if (data.description) {
+      html += `<div class="d-section-label">About</div>
+               <p class="d-text">${esc(data.description)}</p>`;
     }
 
-    // For each display group, find the first matching Wikipedia section
-    const rawSections = data.sections || {};
-    SECTION_CONFIG.forEach(({ keys, label, icon, asList }) => {
-      const entry = Object.entries(rawSections).find(([title]) =>
-        keys.some(k => title.toLowerCase().includes(k))
-      );
-      if (!entry) return;
-      const [, { items = [], text = '' }] = entry;
+    if (data.symptoms?.length) {
+      html += `<div class="d-section-label">🤒 Symptoms</div>
+               <ul class="ai-list">${data.symptoms.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`;
+    }
 
-      html += `<div class="d-section-label">${icon} ${label}</div>`;
-
-      if (asList) {
-        // Use extracted bullet items, or split prose into sentences as fallback
-        const bullets = items.length
-          ? items
-          : (text.match(/[^.!?]+[.!?]+/g) || []).map(s => s.trim()).filter(s => s.length > 15);
-        if (bullets.length) {
-          html += `<ul class="ai-list">${bullets.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
-        }
-      } else if (text) {
-        html += `<p class="d-text">${esc(text)}</p>`;
-      }
-    });
+    if (data.medication?.length) {
+      html += `<div class="d-section-label">💊 Medication</div>
+               <ul class="ai-list">${data.medication.map(m => `<li>${esc(m)}</li>`).join('')}</ul>`;
+    }
 
     sec.innerHTML = html;
   } catch (_) {
