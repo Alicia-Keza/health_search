@@ -68,40 +68,101 @@
 
       <div class="page-head">
         <h1>Symptom Checker</h1>
-        <p>Type your symptoms to find possible conditions. Powered by AI Medical Diagnosis API.</p>
+        <p>Type your symptoms to find possible conditions.</p>
       </div>
 
       <div class="sym-form" id="sym-form-container">
 
         <div class="form-row-2">
           <div class="form-group">
-            <label for="gender-sel">Biological Sex</label>
+            <label for="gender-sel">Sex</label>
             <select class="text-input" id="gender-sel">
               <option value="male">Male</option>
               <option value="female">Female</option>
             </select>
           </div>
           <div class="form-group">
-            <label for="birth-yr">Year of Birth</label>
+            <label for="birth-yr">Birth Year</label>
             <input class="text-input" id="birth-yr" type="number" min="1920" max="2025" value="1990" />
           </div>
         </div>
 
         <div class="form-group">
-          <label for="sym-input">Add Symptoms</label>
+          <label>Common Symptoms <span class="label-hint">(tick all that apply)</span></label>
+          <div class="symptom-checklist">
+
+            <div class="checklist-group">
+              <div class="checklist-group-title">General</div>
+              <div class="checklist-items">
+                <label class="checklist-item"><input type="checkbox" data-sym="Fever"        onchange="toggleCheckSymptom('Fever',this.checked)">        Fever</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Fatigue"      onchange="toggleCheckSymptom('Fatigue',this.checked)">      Fatigue</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Chills"       onchange="toggleCheckSymptom('Chills',this.checked)">       Chills</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Night sweats" onchange="toggleCheckSymptom('Night sweats',this.checked)"> Night sweats</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Weight loss"  onchange="toggleCheckSymptom('Weight loss',this.checked)">  Weight loss</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Loss of appetite" onchange="toggleCheckSymptom('Loss of appetite',this.checked)"> Loss of appetite</label>
+              </div>
+            </div>
+
+            <div class="checklist-group">
+              <div class="checklist-group-title">Head &amp; Neurological</div>
+              <div class="checklist-items">
+                <label class="checklist-item"><input type="checkbox" data-sym="Headache"   onchange="toggleCheckSymptom('Headache',this.checked)">   Headache</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Dizziness"  onchange="toggleCheckSymptom('Dizziness',this.checked)">  Dizziness</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Confusion"  onchange="toggleCheckSymptom('Confusion',this.checked)">  Confusion</label>
+              </div>
+            </div>
+
+            <div class="checklist-group">
+              <div class="checklist-group-title">Respiratory</div>
+              <div class="checklist-items">
+                <label class="checklist-item"><input type="checkbox" data-sym="Cough"               onchange="toggleCheckSymptom('Cough',this.checked)">               Cough</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Shortness of breath" onchange="toggleCheckSymptom('Shortness of breath',this.checked)"> Shortness of breath</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Chest pain"          onchange="toggleCheckSymptom('Chest pain',this.checked)">          Chest pain</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Sore throat"         onchange="toggleCheckSymptom('Sore throat',this.checked)">         Sore throat</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Runny nose"          onchange="toggleCheckSymptom('Runny nose',this.checked)">          Runny nose</label>
+              </div>
+            </div>
+
+            <div class="checklist-group">
+              <div class="checklist-group-title">Digestive</div>
+              <div class="checklist-items">
+                <label class="checklist-item"><input type="checkbox" data-sym="Nausea"       onchange="toggleCheckSymptom('Nausea',this.checked)">       Nausea</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Vomiting"     onchange="toggleCheckSymptom('Vomiting',this.checked)">     Vomiting</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Diarrhea"     onchange="toggleCheckSymptom('Diarrhea',this.checked)">     Diarrhea</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Stomach pain" onchange="toggleCheckSymptom('Stomach pain',this.checked)"> Stomach pain</label>
+              </div>
+            </div>
+
+            <div class="checklist-group">
+              <div class="checklist-group-title">Muscles &amp; Skin</div>
+              <div class="checklist-items">
+                <label class="checklist-item"><input type="checkbox" data-sym="Muscle pain" onchange="toggleCheckSymptom('Muscle pain',this.checked)"> Muscle pain</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Joint pain"  onchange="toggleCheckSymptom('Joint pain',this.checked)">  Joint pain</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Back pain"   onchange="toggleCheckSymptom('Back pain',this.checked)">   Back pain</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Rash"        onchange="toggleCheckSymptom('Rash',this.checked)">        Rash</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Itching"     onchange="toggleCheckSymptom('Itching',this.checked)">     Itching</label>
+                <label class="checklist-item"><input type="checkbox" data-sym="Swelling"    onchange="toggleCheckSymptom('Swelling',this.checked)">    Swelling</label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="sym-input">Add more symptoms <span class="label-hint"></span></label>
           <div class="sym-input-row">
             <input
               class="text-input"
               id="sym-input"
               type="text"
-              placeholder="e.g. headache, fever, fatigue…"
+              placeholder="e.g. blurred vision, ringing in ears…"
               onkeydown="if(event.key==='Enter'){event.preventDefault();addSymptom();}"
             />
             <button class="btn" onclick="addSymptom()">Add</button>
           </div>
         </div>
 
-        <p class="sym-count" id="sym-count">No symptoms added.</p>
+        <p class="sym-count" id="sym-count">No symptoms selected.</p>
 
         <div class="sym-tags" id="sym-tags"></div>
 
@@ -121,7 +182,7 @@
 
   <!-- FOOTER -->
   <footer>
-    <p>For educational use only — not a substitute for professional medical advice.</p>
+    <p>For educational use only. DO NOT use to replace professional medical advice.</p>
     <p class="footer-apis">
       Data:
       <a href="https://icd.who.int/icdapi" target="_blank" rel="noopener">WHO ICD-11</a> ·
