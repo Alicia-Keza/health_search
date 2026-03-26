@@ -1,0 +1,11 @@
+# Secrets — NEVER commit
+.env
+
+# Node dependencies
+node_modules/
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

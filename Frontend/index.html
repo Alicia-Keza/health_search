@@ -12,7 +12,6 @@
   <header>
     <div class="header-inner">
       <div class="logo">
-        <span class="logo-icon">+</span>
         <strong class="logo-name">HealthSearch</strong>
       </div>
       <nav>
@@ -30,7 +29,7 @@
 
       <div class="page-head">
         <h1>Disease Search</h1>
-        <p>Search the WHO ICD-11 global disease database for definitions, codes, and related medicines.</p>
+        <p>Search for diseases and get detailed information about them.</p>
       </div>
 
       <div class="search-row">
@@ -69,10 +68,10 @@
 
       <div class="page-head">
         <h1>Symptom Checker</h1>
-        <p>Select your symptoms to find possible conditions. Powered by ApiMedic.</p>
+        <p>Type your symptoms to find possible conditions. Powered by AI Medical Diagnosis API.</p>
       </div>
 
-      <div class="sym-form">
+      <div class="sym-form" id="sym-form-container">
 
         <div class="form-row-2">
           <div class="form-group">
@@ -89,21 +88,22 @@
         </div>
 
         <div class="form-group">
-          <label for="sym-filter">Filter Symptoms</label>
-          <input
-            class="text-input"
-            id="sym-filter"
-            type="text"
-            placeholder="Type to filter…"
-            oninput="filterSymptoms()"
-          />
+          <label for="sym-input">Add Symptoms</label>
+          <div class="sym-input-row">
+            <input
+              class="text-input"
+              id="sym-input"
+              type="text"
+              placeholder="e.g. headache, fever, fatigue…"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();addSymptom();}"
+            />
+            <button class="btn" onclick="addSymptom()">Add</button>
+          </div>
         </div>
 
-        <p class="sym-count" id="sym-count">No symptoms selected.</p>
+        <p class="sym-count" id="sym-count">No symptoms added.</p>
 
-        <div class="sym-grid" id="sym-grid">
-          <span class="placeholder">Loading symptoms…</span>
-        </div>
+        <div class="sym-tags" id="sym-tags"></div>
 
         <button class="btn btn-block" id="dx-btn" onclick="runDiagnosis()" disabled>
           Check Symptoms
@@ -126,7 +126,7 @@
       Data:
       <a href="https://icd.who.int/icdapi" target="_blank" rel="noopener">WHO ICD-11</a> ·
       <a href="https://open.fda.gov/apis/" target="_blank" rel="noopener">OpenFDA</a> ·
-      <a href="https://apimedic.com"       target="_blank" rel="noopener">ApiMedic</a>
+      <a href="https://rapidapi.com/bilgisamapi-api2/api/ai-medical-diagnosis-api-symptoms-to-results" target="_blank" rel="noopener">AI Medical Diagnosis API</a>
     </p>
   </footer>
 
