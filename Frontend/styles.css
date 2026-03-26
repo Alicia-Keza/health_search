@@ -106,6 +106,17 @@ main { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 .error-msg.show { display: block; }
 .placeholder    { color: #bbb; font-size: 0.9rem; font-style: italic; padding: 2rem 0; text-align: center; }
 
+/* ── Sort bar ── */
+.sort-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+.sort-label { font-size: 0.8rem; color: #999; margin-right: 2px; }
+.sort-btn {
+  background: none; border: 1px solid #ccc; border-radius: 20px;
+  padding: 3px 12px; font-size: 0.8rem; color: #666;
+  cursor: pointer; font-family: inherit; transition: all 0.12s;
+}
+.sort-btn:hover  { border-color: #1a1a1a; color: #1a1a1a; }
+.sort-btn.active { background: #1a1a1a; border-color: #1a1a1a; color: #fff; }
+
 /* ══════════════════════════════════════
    DISEASE CARDS — WHO ICD-11
 ══════════════════════════════════════ */
