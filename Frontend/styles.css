@@ -132,8 +132,8 @@ main { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
 /* ── AI disease info section ── */
 .ai-divider  { border-top: 1px dashed #ddd; margin: 1rem 0 0.75rem; }
-.ai-list     { margin: 0.3rem 0 0 1.2rem; padding: 0; }
-.ai-list li  { font-size: 0.88rem; color: #333; line-height: 1.7; }
+.ai-list     { margin: 0.3rem 0 0.6rem 1.2rem; padding: 0; list-style: disc; }
+.ai-list li  { font-size: 0.88rem; color: #333; line-height: 1.75; margin-bottom: 0.1rem; }
 .ai-advice       { background: #fff8f0; border-left: 3px solid #e8a040; border-radius: 3px;
                    padding: 0.65rem 0.9rem; font-size: 0.88rem; color: #444;
                    line-height: 1.65; margin-top: 0.3rem; }

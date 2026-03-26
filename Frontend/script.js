@@ -154,32 +154,12 @@ function renderDiseaseCard(hit) {
    WIKIPEDIA MEDICAL INFO  →  GET /api/disease-info
 ══════════════════════════════════════ */
 
-// Map Wikipedia section titles to display labels + icon
-const SECTION_LABELS = {
-  'signs and symptoms': { label: 'Signs & Symptoms',       icon: '🤒' },
-  'symptoms':           { label: 'Signs & Symptoms',       icon: '🤒' },
-  'treatment':          { label: 'Treatment & Medications', icon: '💊' },
-  'management':         { label: 'Treatment & Medications', icon: '💊' },
-  'prevention':         { label: 'Prevention',             icon: '🛡️' },
-  'complications':      { label: '⚠ Complications — See a Doctor', icon: '🩺' },
-  'diagnosis':          { label: 'Diagnosis',              icon: '🔬' },
-  'cause':              { label: 'Causes',                 icon: '🔍' },
-  'prognosis':          { label: 'Prognosis',              icon: '📋' },
-};
-
-function matchLabel(sectionTitle) {
-  const lower = sectionTitle.toLowerCase();
-  for (const [key, val] of Object.entries(SECTION_LABELS)) {
-    if (lower.includes(key)) return val;
-  }
-  return { label: sectionTitle, icon: '📄' };
-}
-
-// Preferred display order
-const SECTION_ORDER = [
-  'signs and symptoms', 'symptoms', 'cause',
-  'treatment', 'management', 'diagnosis',
-  'complications', 'prevention', 'prognosis',
+// Section display config — only show these 3 key groups
+const SECTION_CONFIG = [
+  { keys: ['signs and symptoms', 'symptoms'], label: 'Symptoms',              icon: '🤒', asList: true  },
+  { keys: ['treatment', 'management'],        label: 'Treatment & Medication', icon: '💊', asList: false },
+  { keys: ['complications'],                  label: 'See a Doctor If…',       icon: '⚠️', asList: true  },
+  { keys: ['prevention'],                     label: 'Prevention',             icon: '🛡️', asList: true  },
 ];
 
 async function loadAIInfo(diseaseName, sectionId) {
@@ -193,26 +173,34 @@ async function loadAIInfo(diseaseName, sectionId) {
 
     let html = '<div class="ai-divider"></div>';
 
+    // Short 2-sentence overview
     if (data.overview) {
-      html += `<div class="d-section-label">Overview</div><p class="d-text">${esc(data.overview)}</p>`;
+      html += `<div class="d-section-label">About</div><p class="d-text">${esc(data.overview)}</p>`;
     }
 
-    // Sort sections in preferred order
-    const rawSections = Object.entries(data.sections || {});
-    rawSections.sort(([a], [b]) => {
-      const ai = SECTION_ORDER.findIndex(k => a.toLowerCase().includes(k));
-      const bi = SECTION_ORDER.findIndex(k => b.toLowerCase().includes(k));
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    // For each display group, find the first matching Wikipedia section
+    const rawSections = data.sections || {};
+    SECTION_CONFIG.forEach(({ keys, label, icon, asList }) => {
+      const entry = Object.entries(rawSections).find(([title]) =>
+        keys.some(k => title.toLowerCase().includes(k))
+      );
+      if (!entry) return;
+      const [, { items = [], text = '' }] = entry;
+
+      html += `<div class="d-section-label">${icon} ${label}</div>`;
+
+      if (asList && items.length) {
+        // Bullet list
+        html += `<ul class="ai-list">${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+      } else if (text) {
+        // Short paragraph
+        const isComplication = label.includes('Doctor');
+        html += `<p class="d-text${isComplication ? ' ai-complication' : ''}">${esc(text)}</p>`;
+      }
     });
 
-    rawSections.forEach(([title, text]) => {
-      if (!text) return;
-      const { label, icon } = matchLabel(title);
-      const isComplication = title.toLowerCase().includes('complication');
-      html += `
-        <div class="d-section-label">${icon} ${esc(label)}</div>
-        <p class="d-text ${isComplication ? 'ai-complication' : ''}">${esc(text)}</p>`;
-    });
+    // Medical advice footer
+    html += `<div class="ai-advice">💬 <strong>Advice:</strong> This information is for general awareness only. If you experience these symptoms, please consult a qualified healthcare professional for proper diagnosis and treatment.</div>`;
 
     sec.innerHTML = html;
   } catch (_) {

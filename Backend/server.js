@@ -153,22 +153,44 @@ app.post('/api/diagnosis', async (req, res) => {
    Fetches summary + Signs/Treatment/Prevention/Complications
    from Wikipedia — completely free, no API key required.
 ══════════════════════════════════════════════════════════ */
-const WIKI_WANTED = [
-  'signs and symptoms', 'symptoms', 'treatment', 'management',
-  'prevention', 'complications', 'diagnosis', 'cause', 'prognosis',
-];
+// Only fetch these sections — symptoms + treatment + prevention is all we need
+const WIKI_WANTED = ['signs and symptoms', 'symptoms', 'treatment', 'management', 'prevention', 'complications'];
 
 function cleanWikiText(raw = '') {
   return raw
-    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')   // remove citations
-    .replace(/<ref[^/]* \/>/gi, '')
-    .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2') // [[link|text]] → text
-    .replace(/{{[^}]*}}/g, '')                       // remove templates
-    .replace(/'''?/g, '')                            // remove bold/italic
-    .replace(/==+[^=]+==/g, '')                      // remove headers
-    .replace(/\[\d+\]/g, '')                         // remove [1] refs
+    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')        // remove <ref>...</ref>
+    .replace(/<ref[^/]*\/>/gi, '')                       // remove self-closing <ref />
+    .replace(/\[\[(File|Image):[^\]]*\]\]/gi, '')        // remove [[File:...]] images
+    .replace(/\{\{[^}]*\}\}/g, '')                       // remove {{templates}}
+    .replace(/\[\[(?:[^\]|]*\|)+([^\]|]+)\]\]/g, '$1')  // [[a|b|c]] → c (last segment)
+    .replace(/\[\[([^\]|]+)\]\]/g, '$1')                 // [[link]] → link
+    .replace(/'''?/g, '')                                // remove bold/italic markers
+    .replace(/==+[^=]+==+/g, '')                         // remove section headers
+    .replace(/\[\d+\]/g, '')                             // remove [1] citation markers
+    .replace(/^[ \t]*(right|left|thumb|frame|upright|center)\|[^\n]*/gmi, '')  // thumb captions
+    .replace(/^=\s*thumb\|[^\n]*/gmi, '')               // = thumb| artifacts
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// Extract bullet-point list items from wikitext (* item)
+function extractBullets(raw = '') {
+  const lines = raw.split('\n');
+  const items = [];
+  for (const line of lines) {
+    const m = line.match(/^\*+\s*(.+)/);
+    if (m) {
+      const text = cleanWikiText(m[1]).replace(/\s+/g, ' ').trim();
+      if (text.length > 3 && text.length < 200) items.push(text);
+    }
+  }
+  return items;
+}
+
+// Truncate a plain string to N sentences (max)
+function toSentences(text, max = 2) {
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+  return sentences.slice(0, max).join(' ').trim() || text.substring(0, 200);
 }
 
 app.get('/api/disease-info', async (req, res) => {
@@ -184,27 +206,30 @@ app.get('/api/disease-info', async (req, res) => {
     const pageTitle  = searchData.query?.search?.[0]?.title;
     if (!pageTitle) return res.json({ notFound: true });
 
-    // 2 — Get intro summary (clean plain text)
+    // 2 — Get intro summary — keep first 2 sentences only
     const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`;
     const summaryData = await fetch(summaryUrl, { headers: { ...headers, Accept: 'application/json' } }).then(r => r.json());
-    const overview = summaryData.extract || '';
+    const overview = toSentences(summaryData.extract || '', 2);
 
     // 3 — Get section index list
     const secListUrl = `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=sections&format=json`;
     const secListData = await fetch(secListUrl, { headers }).then(r => r.json());
     const sections = secListData.parse?.sections || [];
 
-    // 4 — Fetch content of matching sections (level 2 only to avoid deep nesting)
+    // 4 — Fetch content of matching sections (level 2 only)
     const wanted = sections.filter(s =>
       s.level === '2' && WIKI_WANTED.some(w => s.line.toLowerCase().includes(w))
     );
 
+    // sectionContents: { title: { items: [...], text: '...' } }
     const sectionContents = {};
     await Promise.all(wanted.map(async s => {
       const url = `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=wikitext&section=${s.index}&format=json`;
       const data = await fetch(url, { headers }).then(r => r.json());
       const raw  = data.parse?.wikitext?.['*'] || '';
-      sectionContents[s.line] = cleanWikiText(raw).substring(0, 800);
+      const items = extractBullets(raw);
+      const text  = toSentences(cleanWikiText(raw), 3);
+      sectionContents[s.line] = { items: items.slice(0, 8), text: text.substring(0, 300) };
     }));
 
     res.json({ title: pageTitle, overview, sections: sectionContents });
