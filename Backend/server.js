@@ -148,32 +148,69 @@ app.post('/api/diagnosis', async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════════
-   ROUTE — AI Medical Information for a named disease
+   ROUTE — Wikipedia Medical Information
    GET /api/disease-info?name=diabetes
+   Fetches summary + Signs/Treatment/Prevention/Complications
+   from Wikipedia — completely free, no API key required.
 ══════════════════════════════════════════════════════════ */
+const WIKI_WANTED = [
+  'signs and symptoms', 'symptoms', 'treatment', 'management',
+  'prevention', 'complications', 'diagnosis', 'cause', 'prognosis',
+];
+
+function cleanWikiText(raw = '') {
+  return raw
+    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')   // remove citations
+    .replace(/<ref[^/]* \/>/gi, '')
+    .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2') // [[link|text]] → text
+    .replace(/{{[^}]*}}/g, '')                       // remove templates
+    .replace(/'''?/g, '')                            // remove bold/italic
+    .replace(/==+[^=]+==/g, '')                      // remove headers
+    .replace(/\[\d+\]/g, '')                         // remove [1] refs
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 app.get('/api/disease-info', async (req, res) => {
   const name = req.query.name;
   if (!name) return res.status(400).json({ error: 'Missing query parameter: name' });
 
+  const headers = { 'User-Agent': 'HealthSearch/1.0 (educational project)' };
+
   try {
-    const apiRes = await fetch(
-      'https://ai-medical-diagnosis-api-symptoms-to-results.p.rapidapi.com/getMedicalInformation?noqueue=1',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type':    'application/json',
-          'x-rapidapi-key':  process.env.RAPIDAPI_KEY,
-          'x-rapidapi-host': 'ai-medical-diagnosis-api-symptoms-to-results.p.rapidapi.com',
-        },
-        body: JSON.stringify({ condition: name, lang: 'en' }),
-      }
+    // 1 — Search for best matching Wikipedia article title
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&srlimit=1`;
+    const searchData = await fetch(searchUrl, { headers }).then(r => r.json());
+    const pageTitle  = searchData.query?.search?.[0]?.title;
+    if (!pageTitle) return res.json({ notFound: true });
+
+    // 2 — Get intro summary (clean plain text)
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`;
+    const summaryData = await fetch(summaryUrl, { headers: { ...headers, Accept: 'application/json' } }).then(r => r.json());
+    const overview = summaryData.extract || '';
+
+    // 3 — Get section index list
+    const secListUrl = `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=sections&format=json`;
+    const secListData = await fetch(secListUrl, { headers }).then(r => r.json());
+    const sections = secListData.parse?.sections || [];
+
+    // 4 — Fetch content of matching sections (level 2 only to avoid deep nesting)
+    const wanted = sections.filter(s =>
+      s.level === '2' && WIKI_WANTED.some(w => s.line.toLowerCase().includes(w))
     );
 
-    if (!apiRes.ok) throw new Error(`Medical info API error (${apiRes.status})`);
-    res.json(await apiRes.json());
+    const sectionContents = {};
+    await Promise.all(wanted.map(async s => {
+      const url = `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=wikitext&section=${s.index}&format=json`;
+      const data = await fetch(url, { headers }).then(r => r.json());
+      const raw  = data.parse?.wikitext?.['*'] || '';
+      sectionContents[s.line] = cleanWikiText(raw).substring(0, 800);
+    }));
+
+    res.json({ title: pageTitle, overview, sections: sectionContents });
 
   } catch (e) {
-    console.error('[DiseaseInfo]', e.message);
+    console.error('[DiseaseInfo/Wikipedia]', e.message);
     res.status(500).json({ error: e.message });
   }
 });

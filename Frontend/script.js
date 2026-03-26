@@ -124,8 +124,37 @@ function renderDiseaseCard(hit) {
 }
 
 /* ══════════════════════════════════════
-   AI MEDICAL INFO  →  GET /api/disease-info
+   WIKIPEDIA MEDICAL INFO  →  GET /api/disease-info
 ══════════════════════════════════════ */
+
+// Map Wikipedia section titles to display labels + icon
+const SECTION_LABELS = {
+  'signs and symptoms': { label: 'Signs & Symptoms',       icon: '🤒' },
+  'symptoms':           { label: 'Signs & Symptoms',       icon: '🤒' },
+  'treatment':          { label: 'Treatment & Medications', icon: '💊' },
+  'management':         { label: 'Treatment & Medications', icon: '💊' },
+  'prevention':         { label: 'Prevention',             icon: '🛡️' },
+  'complications':      { label: '⚠ Complications — See a Doctor', icon: '🩺' },
+  'diagnosis':          { label: 'Diagnosis',              icon: '🔬' },
+  'cause':              { label: 'Causes',                 icon: '🔍' },
+  'prognosis':          { label: 'Prognosis',              icon: '📋' },
+};
+
+function matchLabel(sectionTitle) {
+  const lower = sectionTitle.toLowerCase();
+  for (const [key, val] of Object.entries(SECTION_LABELS)) {
+    if (lower.includes(key)) return val;
+  }
+  return { label: sectionTitle, icon: '📄' };
+}
+
+// Preferred display order
+const SECTION_ORDER = [
+  'signs and symptoms', 'symptoms', 'cause',
+  'treatment', 'management', 'diagnosis',
+  'complications', 'prevention', 'prognosis',
+];
+
 async function loadAIInfo(diseaseName, sectionId) {
   try {
     const res  = await fetch(`/api/disease-info?name=${encodeURIComponent(diseaseName)}`);
@@ -133,36 +162,32 @@ async function loadAIInfo(diseaseName, sectionId) {
     const sec  = $(sectionId);
     if (!sec) return;
 
-    if (!res.ok) { sec.innerHTML = ''; return; }
-
-    // Normalise — API may return different field names
-    const symptoms    = data.symptoms    || data.commonSymptoms   || data.signs        || [];
-    const medications = data.medications || data.treatment        || data.medicines     || data.drugs || [];
-    const advice      = data.advice      || data.doctorAdvice     || data.whenToSeeDoctor
-                      || data.recommendations || data.warning     || '';
-    const overview    = data.overview    || data.description      || data.summary      || '';
+    if (!res.ok || data.notFound) { sec.innerHTML = ''; return; }
 
     let html = '<div class="ai-divider"></div>';
-    if (overview) html += `<div class="d-section-label">Overview</div><p class="d-text">${esc(overview)}</p>`;
 
-    if (symptoms.length) {
-      const list = Array.isArray(symptoms) ? symptoms : [symptoms];
-      html += `<div class="d-section-label">Common Symptoms</div>
-        <ul class="ai-list">${list.map(s => `<li>${esc(typeof s === 'string' ? s : s.name || s.symptom || JSON.stringify(s))}</li>`).join('')}</ul>`;
+    if (data.overview) {
+      html += `<div class="d-section-label">Overview</div><p class="d-text">${esc(data.overview)}</p>`;
     }
 
-    if (medications.length) {
-      const list = Array.isArray(medications) ? medications : [medications];
-      html += `<div class="d-section-label">Medications / Treatment</div>
-        <ul class="ai-list">${list.map(m => `<li>${esc(typeof m === 'string' ? m : m.name || m.medication || JSON.stringify(m))}</li>`).join('')}</ul>`;
-    }
+    // Sort sections in preferred order
+    const rawSections = Object.entries(data.sections || {});
+    rawSections.sort(([a], [b]) => {
+      const ai = SECTION_ORDER.findIndex(k => a.toLowerCase().includes(k));
+      const bi = SECTION_ORDER.findIndex(k => b.toLowerCase().includes(k));
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
 
-    if (advice) {
-      html += `<div class="d-section-label">🩺 When to See a Doctor</div>
-        <div class="ai-advice">${esc(typeof advice === 'string' ? advice : JSON.stringify(advice))}</div>`;
-    }
+    rawSections.forEach(([title, text]) => {
+      if (!text) return;
+      const { label, icon } = matchLabel(title);
+      const isComplication = title.toLowerCase().includes('complication');
+      html += `
+        <div class="d-section-label">${icon} ${esc(label)}</div>
+        <p class="d-text ${isComplication ? 'ai-complication' : ''}">${esc(text)}</p>`;
+    });
 
-    sec.innerHTML = html || '';
+    sec.innerHTML = html;
   } catch (_) {
     const sec = $(sectionId);
     if (sec) sec.innerHTML = '';
