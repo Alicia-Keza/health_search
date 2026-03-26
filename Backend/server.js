@@ -145,8 +145,9 @@ app.get('/api/drugs', async (req, res) => {
   const { q } = req.query;
   if (!q) return res.status(400).json({ error: 'Missing q' });
   try {
+    const cleanQ = q.replace(/,\s*(type\s+)?(un)?specified.*/i, '').replace(/\s+without\s+.*/i, '').replace(/\s+with\s+.*/i, '').trim();
     const key = process.env.OPENFDA_KEY ? `&api_key=${process.env.OPENFDA_KEY}` : '';
-    const r   = await fetch(`https://api.fda.gov/drug/label.json?search=indications_and_usage:"${encodeURIComponent(q)}"&limit=3${key}`);
+    const r   = await fetch(`https://api.fda.gov/drug/label.json?search=indications_and_usage:"${encodeURIComponent(cleanQ)}"&limit=3${key}`);
     if (r.status === 404) return res.json({ results: [] });
     if (!r.ok) throw new Error(`OpenFDA error (${r.status})`);
     res.json(await r.json());
