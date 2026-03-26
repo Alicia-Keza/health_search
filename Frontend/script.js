@@ -56,7 +56,7 @@ function renderDiseaseCard(hit) {
   `;
   $('disease-results').appendChild(card);
   loadSymptoms(title, aId, sId);
-  loadFDA(title, fId);
+  loadFDA(title, fId, sId);
 }
 
 /* ── Description + Symptoms (Wikipedia) ── */
@@ -65,18 +65,26 @@ async function loadSymptoms(name, aId, sId) {
     const data = await fetch(`/api/disease-info?name=${encodeURIComponent(name)}`).then(r => r.json());
     if ($(aId)) $(aId).innerHTML = data.description ? `<div class="d-section-label">About</div><p class="d-text">${esc(data.description)}</p>` : '';
     if ($(sId)) $(sId).innerHTML = data.symptoms?.length ? `<div class="d-section-label">🤒 Symptoms</div><ul class="ai-list">${data.symptoms.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>` : '';
+    // Store wiki treatments on the element for FDA fallback
+    if ($(sId)) $(sId).dataset.treatments = JSON.stringify(data.treatments || []);
   } catch (_) { if ($(aId)) $(aId).innerHTML=''; if ($(sId)) $(sId).innerHTML=''; }
 }
 
 /* ── Medication (OpenFDA) ── */
-async function loadFDA(query, sId) {
+async function loadFDA(query, fId, sId) {
   try {
     const data = await fetch(`/api/drugs?q=${encodeURIComponent(query)}`).then(r => r.json());
-    const sec  = $(sId);
-    if (!sec || !data.results?.length) { if (sec) sec.innerHTML=''; return; }
-    const names = [...new Set(data.results.flatMap(d => [d.openfda?.brand_name?.[0], d.openfda?.generic_name?.[0]].filter(Boolean)))].slice(0,6);
-    sec.innerHTML = names.length ? `<div class="d-section-label">💊 Medication</div><ul class="ai-list">${names.map(n=>`<li>${esc(n)}</li>`).join('')}</ul><p class="fda-note">Source: OpenFDA. Always consult a doctor before taking any medication.</p>` : '';
-  } catch (_) { if ($(sId)) $(sId).innerHTML=''; }
+    const sec  = $(fId);
+    if (!sec) return;
+    const names = [...new Set((data.results||[]).flatMap(d => [d.openfda?.brand_name?.[0], d.openfda?.generic_name?.[0]].filter(Boolean)))].slice(0,6);
+    if (names.length) {
+      sec.innerHTML = `<div class="d-section-label">💊 Medication</div><ul class="ai-list">${names.map(n=>`<li>${esc(n)}</li>`).join('')}</ul><p class="fda-note">Source: OpenFDA. Always consult a doctor before taking any medication.</p>`;
+    } else {
+      // Fallback: use Wikipedia treatments
+      const treatments = JSON.parse($(sId)?.dataset.treatments || '[]');
+      sec.innerHTML = treatments.length ? `<div class="d-section-label">💊 Treatment</div><ul class="ai-list">${treatments.map(t=>`<li>${esc(t)}</li>`).join('')}</ul><p class="fda-note">Source: Wikipedia. Always consult a doctor before taking any medication.</p>` : '';
+    }
+  } catch (_) { if ($(fId)) $(fId).innerHTML=''; }
 }
 
 /* ── Symptom Tag Input ── */

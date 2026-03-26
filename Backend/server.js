@@ -104,9 +104,11 @@ app.get('/api/disease-info', async (req, res) => {
     const sentences  = (summary.extract || '').match(/[^.!?]+[.!?]+/g) || [];
     const description = sentences.filter(s => s.trim().length > 20).slice(0, 2).join(' ').trim();
 
-    // 3 — Find the symptoms section
-    const secData    = await fetch(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=sections&format=json`, { headers: h }).then(r => r.json());
-    const symSection = (secData.parse?.sections || []).find(s => ['signs and symptoms', 'symptoms'].some(k => s.line.toLowerCase().includes(k)));
+    // 3 — Find the symptoms and treatment sections
+    const secData      = await fetch(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=sections&format=json`, { headers: h }).then(r => r.json());
+    const sections     = secData.parse?.sections || [];
+    const symSection   = sections.find(s => ['signs and symptoms', 'symptoms'].some(k => s.line.toLowerCase().includes(k)));
+    const treatSection = sections.find(s => ['treatment', 'management', 'therapy'].some(k => s.line.toLowerCase().includes(k)));
 
     // 4 — Extract symptoms from section HTML
     let symptoms = [];
@@ -136,7 +138,30 @@ app.get('/api/disease-info', async (req, res) => {
       }
     }
 
-    res.json({ title: pageTitle, description, symptoms });
+    // 5 — Extract treatments from treatment section
+    let treatments = [];
+    if (treatSection) {
+      const htmlData = await fetch(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=text&section=${treatSection.index}&format=json`, { headers: h }).then(r => r.json());
+      const html = htmlData.parse?.text?.['*'] || '';
+      const cleanHtml = html.replace(/<ol class="references">[\s\S]*?<\/ol>/gi, '');
+      const liItems = [...cleanHtml.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+        .map(m => stripTags(m[1]).trim())
+        .filter(s => s.length > 3 && s.length < 200 && !s.startsWith('^') && !s.includes('Cite error') && !s.includes('Retrieved'));
+      if (liItems.length) {
+        treatments = liItems.slice(0, 6);
+      } else {
+        const paras = [...cleanHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map(m => stripTags(m[1]).replace(/\[[\d,\s]+\]/g, '').trim()).filter(s => s.length > 30);
+        for (const para of paras.slice(0, 3)) {
+          const m = para.match(/\b(?:include|includes|are|such as|including|used|involves?)\s+([^.;]+)/i);
+          if (m) {
+            treatments = m[1].split(/,\s*(?:and\s+)?|\s+and\s+/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 80).slice(0, 6);
+            if (treatments.length >= 2) break;
+          }
+        }
+      }
+    }
+
+    res.json({ title: pageTitle, description, symptoms, treatments });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
