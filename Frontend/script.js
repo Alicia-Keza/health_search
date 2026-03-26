@@ -87,31 +87,21 @@ async function searchDisease() {
 }
 
 function renderDiseaseCard(hit) {
-  const wrap     = $('disease-results');
-  const title    = stripHtml(hit.title    || '');
-  const code     = hit.theCode            || '';
-  const chapter  = stripHtml(hit.chapter  || '');
-  const defn     = stripHtml(hit.definition || '');
-  const note     = stripHtml(hit.longDefinition || hit.note || '');
-  const synonyms = (hit.synonyms || hit.inclusion || [])
-    .map(s => stripHtml(typeof s === 'object' ? s.label || '' : s))
-    .filter(Boolean).slice(0, 10);
-
-  const fdaId = 'fda-' + (code || title.replace(/\W/g, '').slice(0, 12));
+  const wrap  = $('disease-results');
+  const title = stripHtml(hit.title || '');
+  const code  = hit.theCode || '';
+  const cardId = 'card-' + (code || title.replace(/\W/g, '').slice(0, 12));
+  const fdaId  = 'fda-'  + (code || title.replace(/\W/g, '').slice(0, 12));
 
   const card = document.createElement('div');
   card.className = 'disease-card';
+  card.id = cardId;
   card.innerHTML = `
     <div class="d-name">${esc(title)}</div>
-    ${code    ? `<span class="d-code">ICD-11: ${esc(code)}</span>` : ''}
-    ${chapter ? `<div class="d-section-label">Chapter</div><p class="d-text">${esc(chapter)}</p>` : ''}
-    ${defn    ? `<div class="d-section-label">Definition</div><p class="d-text">${esc(defn)}</p>` : ''}
-    ${note    ? `<div class="d-section-label">Clinical Notes</div><p class="d-text">${esc(note)}</p>` : ''}
-    ${synonyms.length ? `
-      <div class="d-section-label">Also Known As</div>
-      <div class="d-synonyms">
-        ${synonyms.map(s => `<span class="syn-tag">${esc(s)}</span>`).join('')}
-      </div>` : ''}
+    ${code ? `<span class="d-code">ICD-11: ${esc(code)}</span>` : ''}
+    <div class="d-details-body">
+      <p class="d-loading-detail">Loading details…</p>
+    </div>
     <div class="fda-block" id="${fdaId}">
       <div class="fda-heading">💊 Related Medicines (OpenFDA)</div>
       <p style="font-size:.82rem;color:#bbb;font-style:italic">Loading…</p>
@@ -120,6 +110,50 @@ function renderDiseaseCard(hit) {
 
   wrap.appendChild(card);
   loadFDA(title, fdaId);
+
+  // Fetch full entity details if we have an id URI
+  if (hit.id) {
+    loadEntityDetails(hit.id, cardId, title);
+  } else {
+    card.querySelector('.d-loading-detail').remove();
+  }
+}
+
+async function loadEntityDetails(uri, cardId, title) {
+  try {
+    const res  = await fetch(`/api/icd/entity?uri=${encodeURIComponent(uri)}`);
+    const data = await res.json();
+    const card = $(cardId);
+    if (!card) return;
+
+    const defn     = stripHtml(data.definition?.['@value'] || data.definition || '');
+    const note     = stripHtml(data.longDefinition?.['@value'] || data.longDefinition || '');
+    const chapter  = stripHtml(data.classKind || '');
+    const synonyms = (data.synonym || data.inclusion || [])
+      .map(s => stripHtml(s?.label?.['@value'] || s?.label || (typeof s === 'string' ? s : '')))
+      .filter(Boolean).slice(0, 10);
+
+    // Also try coded elsewhere / exclusion notes
+    const exclusions = (data.exclusion || [])
+      .map(e => stripHtml(e?.label?.['@value'] || ''))
+      .filter(Boolean).slice(0, 5);
+
+    let html = '';
+    if (defn)  html += `<div class="d-section-label">Definition</div><p class="d-text">${esc(defn)}</p>`;
+    if (note)  html += `<div class="d-section-label">Clinical Notes</div><p class="d-text">${esc(note)}</p>`;
+    if (synonyms.length) html += `
+      <div class="d-section-label">Also Known As</div>
+      <div class="d-synonyms">${synonyms.map(s => `<span class="syn-tag">${esc(s)}</span>`).join('')}</div>`;
+    if (exclusions.length) html += `
+      <div class="d-section-label">Excludes</div>
+      <div class="d-synonyms">${exclusions.map(s => `<span class="syn-tag">${esc(s)}</span>`).join('')}</div>`;
+    if (!html) html = `<p class="d-text" style="color:#bbb;font-style:italic">No additional details available.</p>`;
+
+    card.querySelector('.d-details-body').innerHTML = html;
+  } catch (_) {
+    const card = $(cardId);
+    if (card) card.querySelector('.d-loading-detail')?.remove();
+  }
 }
 
 /* ══════════════════════════════════════
