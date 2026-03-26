@@ -158,17 +158,20 @@ const WIKI_WANTED = ['signs and symptoms', 'symptoms', 'treatment', 'management'
 
 function cleanWikiText(raw = '') {
   return raw
-    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')        // remove <ref>...</ref>
+    .replace(/<!--[\s\S]*?-->/g, '')                     // remove HTML comments <!-- -->
+    .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '')          // remove <ref>...</ref>
     .replace(/<ref[^/]*\/>/gi, '')                       // remove self-closing <ref />
-    .replace(/\[\[(File|Image):[^\]]*\]\]/gi, '')        // remove [[File:...]] images
-    .replace(/\{\{[^}]*\}\}/g, '')                       // remove {{templates}}
+    .replace(/\[\[(File|Image):[^\n]*/gi, '')            // remove [[File:... (even unclosed)
+    .replace(/\{\{[\s\S]*?\}\}/g, '')                    // remove {{templates}} (multiline)
     .replace(/\[\[(?:[^\]|]*\|)+([^\]|]+)\]\]/g, '$1')  // [[a|b|c]] → c (last segment)
     .replace(/\[\[([^\]|]+)\]\]/g, '$1')                 // [[link]] → link
+    .replace(/\]\]/g, '').replace(/\[\[/g, '')           // remove any orphaned [[ or ]]
     .replace(/'''?/g, '')                                // remove bold/italic markers
     .replace(/==+[^=]+==+/g, '')                         // remove section headers
     .replace(/\[\d+\]/g, '')                             // remove [1] citation markers
-    .replace(/^[ \t]*(right|left|thumb|frame|upright|center)\|[^\n]*/gmi, '')  // thumb captions
-    .replace(/^=\s*thumb\|[^\n]*/gmi, '')               // = thumb| artifacts
+    .replace(/^[ \t]*(right|left|thumb|frame|upright|center)\|[^\n]*/gmi, '')
+    .replace(/^=?\s*thumb\|[^\n]*/gmi, '')               // = thumb| artifacts
+    .replace(/^[\s,;|:]+/gm, '')                         // remove leading , ; | : per line
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -187,10 +190,12 @@ function extractBullets(raw = '') {
   return items;
 }
 
-// Truncate a plain string to N sentences (max)
+// Truncate a plain string to N full sentences (filters out short fragments)
 function toSentences(text, max = 2) {
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
-  return sentences.slice(0, max).join(' ').trim() || text.substring(0, 200);
+  const sentences = (text.match(/[^.!?]+[.!?]+/g) || [])
+    .map(s => s.trim())
+    .filter(s => s.length > 20);           // skip very short fragments like "and 29."
+  return sentences.slice(0, max).join(' ').trim() || text.substring(0, 200).trim();
 }
 
 app.get('/api/disease-info', async (req, res) => {
@@ -228,8 +233,8 @@ app.get('/api/disease-info', async (req, res) => {
       const data = await fetch(url, { headers }).then(r => r.json());
       const raw  = data.parse?.wikitext?.['*'] || '';
       const items = extractBullets(raw);
-      const text  = toSentences(cleanWikiText(raw), 3);
-      sectionContents[s.line] = { items: items.slice(0, 8), text: text.substring(0, 300) };
+      const text  = toSentences(cleanWikiText(raw), 2);
+      sectionContents[s.line] = { items: items.slice(0, 8), text };
     }));
 
     res.json({ title: pageTitle, overview, sections: sectionContents });
