@@ -148,6 +148,37 @@ app.post('/api/diagnosis', async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════════
+   ROUTE — AI Medical Information for a named disease
+   GET /api/disease-info?name=diabetes
+══════════════════════════════════════════════════════════ */
+app.get('/api/disease-info', async (req, res) => {
+  const name = req.query.name;
+  if (!name) return res.status(400).json({ error: 'Missing query parameter: name' });
+
+  try {
+    const apiRes = await fetch(
+      'https://ai-medical-diagnosis-api-symptoms-to-results.p.rapidapi.com/getMedicalInformation?noqueue=1',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':    'application/json',
+          'x-rapidapi-key':  process.env.RAPIDAPI_KEY,
+          'x-rapidapi-host': 'ai-medical-diagnosis-api-symptoms-to-results.p.rapidapi.com',
+        },
+        body: JSON.stringify({ condition: name, lang: 'en' }),
+      }
+    );
+
+    if (!apiRes.ok) throw new Error(`Medical info API error (${apiRes.status})`);
+    res.json(await apiRes.json());
+
+  } catch (e) {
+    console.error('[DiseaseInfo]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
    ROUTE — OpenFDA Drug Labels
    GET /api/drugs?q=malaria
 ══════════════════════════════════════════════════════════ */

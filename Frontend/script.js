@@ -90,8 +90,9 @@ function renderDiseaseCard(hit) {
   const wrap  = $('disease-results');
   const title = stripHtml(hit.title || '');
   const code  = hit.theCode || '';
-  const cardId = 'card-' + (code || title.replace(/\W/g, '').slice(0, 12));
-  const fdaId  = 'fda-'  + (code || title.replace(/\W/g, '').slice(0, 12));
+  const cardId  = 'card-' + (code || title.replace(/\W/g, '').slice(0, 12));
+  const fdaId   = 'fda-'  + (code || title.replace(/\W/g, '').slice(0, 12));
+  const aiId    = 'ai-'   + (code || title.replace(/\W/g, '').slice(0, 12));
 
   const card = document.createElement('div');
   card.className = 'disease-card';
@@ -100,7 +101,10 @@ function renderDiseaseCard(hit) {
     <div class="d-name">${esc(title)}</div>
     ${code ? `<span class="d-code">ICD-11: ${esc(code)}</span>` : ''}
     <div class="d-details-body">
-      <p class="d-loading-detail">Loading details…</p>
+      <p class="d-loading-detail" style="color:#bbb;font-size:.85rem;font-style:italic">Loading ICD-11 details…</p>
+    </div>
+    <div class="ai-info-block" id="${aiId}">
+      <p style="color:#bbb;font-size:.85rem;font-style:italic;margin-top:.75rem">Loading symptoms &amp; advice…</p>
     </div>
     <div class="fda-block" id="${fdaId}">
       <div class="fda-heading">💊 Related Medicines (OpenFDA)</div>
@@ -110,12 +114,58 @@ function renderDiseaseCard(hit) {
 
   wrap.appendChild(card);
   loadFDA(title, fdaId);
+  loadAIInfo(title, aiId);
 
-  // Fetch full entity details if we have an id URI
   if (hit.id) {
     loadEntityDetails(hit.id, cardId);
   } else {
     card.querySelector('.d-loading-detail').remove();
+  }
+}
+
+/* ══════════════════════════════════════
+   AI MEDICAL INFO  →  GET /api/disease-info
+══════════════════════════════════════ */
+async function loadAIInfo(diseaseName, sectionId) {
+  try {
+    const res  = await fetch(`/api/disease-info?name=${encodeURIComponent(diseaseName)}`);
+    const data = await res.json();
+    const sec  = $(sectionId);
+    if (!sec) return;
+
+    if (!res.ok) { sec.innerHTML = ''; return; }
+
+    // Normalise — API may return different field names
+    const symptoms    = data.symptoms    || data.commonSymptoms   || data.signs        || [];
+    const medications = data.medications || data.treatment        || data.medicines     || data.drugs || [];
+    const advice      = data.advice      || data.doctorAdvice     || data.whenToSeeDoctor
+                      || data.recommendations || data.warning     || '';
+    const overview    = data.overview    || data.description      || data.summary      || '';
+
+    let html = '<div class="ai-divider"></div>';
+    if (overview) html += `<div class="d-section-label">Overview</div><p class="d-text">${esc(overview)}</p>`;
+
+    if (symptoms.length) {
+      const list = Array.isArray(symptoms) ? symptoms : [symptoms];
+      html += `<div class="d-section-label">Common Symptoms</div>
+        <ul class="ai-list">${list.map(s => `<li>${esc(typeof s === 'string' ? s : s.name || s.symptom || JSON.stringify(s))}</li>`).join('')}</ul>`;
+    }
+
+    if (medications.length) {
+      const list = Array.isArray(medications) ? medications : [medications];
+      html += `<div class="d-section-label">Medications / Treatment</div>
+        <ul class="ai-list">${list.map(m => `<li>${esc(typeof m === 'string' ? m : m.name || m.medication || JSON.stringify(m))}</li>`).join('')}</ul>`;
+    }
+
+    if (advice) {
+      html += `<div class="d-section-label">🩺 When to See a Doctor</div>
+        <div class="ai-advice">${esc(typeof advice === 'string' ? advice : JSON.stringify(advice))}</div>`;
+    }
+
+    sec.innerHTML = html || '';
+  } catch (_) {
+    const sec = $(sectionId);
+    if (sec) sec.innerHTML = '';
   }
 }
 
