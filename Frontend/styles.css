@@ -32,14 +32,6 @@ header { background: #fff; border-bottom: 2px solid #1a1a1a; }
 
 .logo { display: flex; align-items: center; gap: 8px; }
 
-.logo-icon {
-  width: 26px; height: 26px;
-  background: #1a1a1a; color: #fff;
-  font-size: 1.1rem; font-weight: bold;
-  border-radius: 3px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
 
 .logo-name { font-size: 1.05rem; letter-spacing: 0.02em; }
 
@@ -173,7 +165,7 @@ main { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
 /* ── Diagnosis results ── */
 .dx-heading { font-size: 0.74rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.07em; color: #888; margin-bottom: 0.8rem; }
-.dx-card { background: #fff; border: 1px solid #ddd; border-radius: 3px; padding: 0.9rem 1rem; margin-bottom: 0.6rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.dx-card { background: #fff; border: 1px solid #ddd; border-radius: 3px; padding: 0.9rem 1rem; margin-bottom: 0.6rem; }
 .dx-left    { flex: 1; }
 .dx-name    { font-weight: bold; font-size: 0.95rem; margin-bottom: 0.15rem; }
 .dx-meta    { font-size: 0.78rem; color: #999; margin-bottom: 0.4rem; }

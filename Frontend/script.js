@@ -120,7 +120,7 @@ function renderDiseaseCard(hit) {
   if (hit.id) {
     loadEntityDetails(hit.id, cardId);
   } else {
-    card.querySelector('.d-loading-detail').remove();
+    card.querySelector('.d-loading-detail')?.remove();
   }
 }
 
@@ -143,7 +143,10 @@ async function loadAIInfo(diseaseName, sectionId) {
     const sec  = $(sectionId);
     if (!sec) return;
 
-    if (!res.ok || data.notFound) { sec.innerHTML = ''; return; }
+    if (!res.ok || data.notFound) {
+      sec.innerHTML = '<div class="ai-divider"></div><p class="d-text" style="color:#bbb;font-style:italic">No additional information found for this condition.</p>';
+      return;
+    }
 
     let html = '<div class="ai-divider"></div>';
 
@@ -318,7 +321,7 @@ async function runDiagnosis() {
 
   const gender = $('gender-sel').value;
   const year   = parseInt($('birth-yr').value) || 1990;
-  const age    = new Date().getFullYear() - year;
+  const age    = Math.max(1, Math.min(120, new Date().getFullYear() - year));
 
   try {
     const res  = await fetch('/api/diagnosis', {
@@ -354,9 +357,7 @@ function buildConditionCard(d) {
       ${prob ? `<div class="dx-meta">Likelihood: ${esc(String(prob))}</div>` : ''}
       ${desc ? `<div class="dx-ai-text">${esc(desc)}</div>` : ''}
       ${rec  ? `<div class="dx-ai-rec"><strong>Recommendation:</strong> ${esc(rec)}</div>` : ''}
-      <button class="btn-view" onclick="jumpToSearch('${esc(name).replace(/'/g, "\\'")}')">
-        View in Disease Search →
-      </button>
+      ${name !== '—' ? `<button class="btn-view" onclick="jumpToSearch('${esc(name).replace(/'/g, "\\'")}')">View in Disease Search →</button>` : ''}
     </div>
   `;
   return card;
