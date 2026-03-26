@@ -114,59 +114,39 @@ function renderDiseaseCard(hit) {
 
   wrap.appendChild(card);
 
-  // Description → ICD-11 entity definition
-  if (hit.id) loadDescription(hit.id, aboutId);
-  else $(aboutId).innerHTML = '';
-
-  // Symptoms → Wikipedia HTML
-  loadSymptoms(title, symId);
+  // Description + Symptoms → Wikipedia (one call)
+  loadSymptoms(title, aboutId, symId);
 
   // Medication → OpenFDA
   loadFDA(title, fdaId);
 }
 
 /* ══════════════════════════════════════
-   DESCRIPTION  →  ICD-11 entity definition
+   DESCRIPTION + SYMPTOMS  →  Wikipedia
 ══════════════════════════════════════ */
-async function loadDescription(uri, sectionId) {
-  const sec = $(sectionId);
-  try {
-    const res  = await fetch(`/api/icd/entity?uri=${encodeURIComponent(uri)}`);
-    const data = await res.json();
-    if (!sec) return;
-
-    const val  = (f) => (f && typeof f === 'object') ? (f['@value'] || '') : (f || '');
-    const defn = stripHtml(val(data.definition) || val(data.longDefinition));
-
-    sec.innerHTML = defn
-      ? `<div class="d-section-label">About</div><p class="d-text">${esc(defn)}</p>`
-      : '';
-  } catch (_) {
-    if (sec) sec.innerHTML = '';
-  }
-}
-
-/* ══════════════════════════════════════
-   SYMPTOMS  →  Wikipedia HTML list items
-══════════════════════════════════════ */
-async function loadSymptoms(diseaseName, sectionId) {
-  const sec = $(sectionId);
+async function loadSymptoms(diseaseName, aboutId, symId) {
+  const aboutSec = $(aboutId);
+  const symSec   = $(symId);
   try {
     const res  = await fetch(`/api/disease-info?name=${encodeURIComponent(diseaseName)}`);
     const data = await res.json();
-    if (!sec) return;
 
-    if (!res.ok || data.notFound || !data.symptoms?.length) {
-      sec.innerHTML = '';
-      return;
+    // Description
+    if (aboutSec) {
+      aboutSec.innerHTML = data.description
+        ? `<div class="d-section-label">About</div><p class="d-text">${esc(data.description)}</p>`
+        : '';
     }
 
-    sec.innerHTML = `
-      <div class="d-section-label">🤒 Symptoms</div>
-      <ul class="ai-list">${data.symptoms.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
-    `;
+    // Symptoms
+    if (symSec) {
+      symSec.innerHTML = data.symptoms?.length
+        ? `<div class="d-section-label">🤒 Symptoms</div><ul class="ai-list">${data.symptoms.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
+        : '';
+    }
   } catch (_) {
-    if (sec) sec.innerHTML = '';
+    if (aboutSec) aboutSec.innerHTML = '';
+    if (symSec)   symSec.innerHTML   = '';
   }
 }
 

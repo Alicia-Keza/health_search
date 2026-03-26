@@ -79,21 +79,40 @@ app.get('/api/disease-info', async (req, res) => {
   if (!name) return res.status(400).json({ error: 'Missing name' });
   const h = { 'User-Agent': 'HealthSearch/1.0 (educational project)' };
   try {
+    // 1 — Find Wikipedia article
     const searchData = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&srlimit=1`, { headers: h }).then(r => r.json());
     const pageTitle  = searchData.query?.search?.[0]?.title;
     if (!pageTitle) return res.json({ notFound: true });
 
+    // 2 — Get description from REST summary (clean 2-sentence plain text)
+    const summary = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`, { headers: { ...h, Accept: 'application/json' } }).then(r => r.json());
+    const sentences  = (summary.extract || '').match(/[^.!?]+[.!?]+/g) || [];
+    const description = sentences.filter(s => s.trim().length > 20).slice(0, 2).join(' ').trim();
+
+    // 3 — Find the symptoms section
     const secData    = await fetch(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=sections&format=json`, { headers: h }).then(r => r.json());
     const symSection = (secData.parse?.sections || []).find(s => ['signs and symptoms', 'symptoms'].some(k => s.line.toLowerCase().includes(k)));
 
+    // 4 — Extract <li> items from symptoms section HTML, filter out citations/references
     let symptoms = [];
     if (symSection) {
       const htmlData = await fetch(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=text&section=${symSection.index}&format=json`, { headers: h }).then(r => r.json());
-      symptoms = [...(htmlData.parse?.text?.['*'] || '').matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
-        .map(m => stripTags(m[1]).trim()).filter(s => s.length > 4 && s.length < 200).slice(0, 8);
+      const html = htmlData.parse?.text?.['*'] || '';
+      // Remove the references/footnotes block before extracting items
+      const cleanHtml = html.replace(/<ol class="references">[\s\S]*?<\/ol>/gi, '');
+      symptoms = [...cleanHtml.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+        .map(m => stripTags(m[1]).trim())
+        .filter(s =>
+          s.length > 5 && s.length < 200 &&
+          !s.startsWith('^') &&
+          !s.includes('Cite error') &&
+          !s.includes('Retrieved') &&
+          !s.match(/^https?:\/\//)
+        )
+        .slice(0, 8);
     }
 
-    res.json({ title: pageTitle, symptoms });
+    res.json({ title: pageTitle, description, symptoms });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
