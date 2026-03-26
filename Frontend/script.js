@@ -6,8 +6,6 @@
 
 /* ── State ── */
 let selectedSymptoms = [];
-let currentHits       = [];   // cached disease search results for re-sorting
-let currentConditions = [];   // cached diagnosis conditions for re-sorting
 
 /* ══════════════════════════════════════
    UTILITIES
@@ -75,8 +73,10 @@ async function searchDisease() {
       return;
     }
 
-    currentHits = hits;
-    renderSortedResults('relevance');
+    $('disease-results').innerHTML =
+      `<p class="results-info">Showing ${Math.min(hits.length, 5)} of ${hits.length} result(s) for "<strong>${esc(q)}</strong>"</p>`;
+
+    hits.slice(0, 5).forEach(hit => renderDiseaseCard(hit));
 
   } catch (e) {
     showError('d-error', e.message || 'Could not reach the server. Is it running?');
@@ -86,32 +86,6 @@ async function searchDisease() {
   }
 }
 
-function renderSortedResults(sortKey) {
-  const q    = $('disease-input').value.trim();
-  const hits = [...currentHits];
-
-  if (sortKey === 'az') {
-    hits.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-  } else if (sortKey === 'za') {
-    hits.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
-  } else if (sortKey === 'code') {
-    hits.sort((a, b) => (a.theCode || '').localeCompare(b.theCode || ''));
-  }
-  // 'relevance' = original API order, no sort needed
-
-  $('disease-results').innerHTML = `
-    <div class="sort-bar">
-      <span class="sort-label">Sort:</span>
-      <button class="sort-btn ${sortKey === 'relevance' ? 'active' : ''}" onclick="renderSortedResults('relevance')">Relevance</button>
-      <button class="sort-btn ${sortKey === 'az'        ? 'active' : ''}" onclick="renderSortedResults('az')">A → Z</button>
-      <button class="sort-btn ${sortKey === 'za'        ? 'active' : ''}" onclick="renderSortedResults('za')">Z → A</button>
-      <button class="sort-btn ${sortKey === 'code'      ? 'active' : ''}" onclick="renderSortedResults('code')">ICD-11 Code</button>
-    </div>
-    <p class="results-info">Showing ${Math.min(hits.length, 5)} of ${hits.length} result(s) for "<strong>${esc(q)}</strong>"</p>
-  `;
-
-  hits.slice(0, 5).forEach(hit => renderDiseaseCard(hit));
-}
 
 function renderDiseaseCard(hit) {
   const wrap  = $('disease-results');
@@ -388,33 +362,6 @@ function buildConditionCard(d) {
   return card;
 }
 
-function sortDiagnosis(key) {
-  const sorted = [...currentConditions];
-  if (key === 'az') {
-    sorted.sort((a, b) => (a.name || a.condition || '').localeCompare(b.name || b.condition || ''));
-  } else if (key === 'za') {
-    sorted.sort((a, b) => (b.name || b.condition || '').localeCompare(a.name || a.condition || ''));
-  } else {
-    sorted.sort((a, b) => {
-      const pa = parseFloat(a.probability || a.confidence || a.likelihood || 0);
-      const pb = parseFloat(b.probability || b.confidence || b.likelihood || 0);
-      return pb - pa;
-    });
-  }
-
-  // Update active sort button
-  $('dx-results').querySelectorAll('.sort-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.toLowerCase().startsWith(key === 'likelihood' ? 'lik' : key === 'az' ? 'a' : 'z'));
-  });
-
-  // Rebuild just the condition cards (sort bar + heading + disclaimer stay)
-  $('dx-results').querySelectorAll('.dx-card').forEach(c => c.remove());
-  const disclaimer = $('dx-results').querySelector('.dx-disclaimer');
-  sorted.slice(0, 8).forEach(d => {
-    const card = buildConditionCard(d);
-    disclaimer.before(card);
-  });
-}
 
 function renderDiagnosis(data) {
   const wrap = $('dx-results');
@@ -430,15 +377,7 @@ function renderDiagnosis(data) {
     (Array.isArray(data) ? data : null);
 
   if (conditions?.length) {
-    wrap.innerHTML = `
-      <div class="sort-bar">
-        <span class="sort-label">Sort:</span>
-        <button class="sort-btn active"  onclick="sortDiagnosis('likelihood')">Likelihood ↓</button>
-        <button class="sort-btn"         onclick="sortDiagnosis('az')">A → Z</button>
-        <button class="sort-btn"         onclick="sortDiagnosis('za')">Z → A</button>
-      </div>
-      <div class="dx-heading">Possible Conditions (${conditions.length} found)</div>`;
-    currentConditions = conditions;
+    wrap.innerHTML = `<div class="dx-heading">Possible Conditions (${conditions.length} found)</div>`;
     conditions.slice(0, 8).forEach(d => wrap.appendChild(buildConditionCard(d)));
   } else {
     // Fallback: render whatever top-level fields came back as a summary card
