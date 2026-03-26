@@ -74,9 +74,9 @@ async function searchDisease() {
     }
 
     $('disease-results').innerHTML =
-      `<p class="results-info">Showing ${Math.min(hits.length, 5)} of ${hits.length} result(s) for "<strong>${esc(q)}</strong>"</p>`;
+      `<p class="results-info">Top result for "<strong>${esc(q)}</strong>"</p>`;
 
-    hits.slice(0, 5).forEach(hit => renderDiseaseCard(hit));
+    renderDiseaseCard(hits[0]);
 
   } catch (e) {
     showError('d-error', e.message || 'Could not reach the server. Is it running?');
@@ -101,39 +101,27 @@ function renderDiseaseCard(hit) {
   card.innerHTML = `
     <div class="d-name">${esc(title)}</div>
     ${code ? `<span class="d-code">ICD-11: ${esc(code)}</span>` : ''}
-    <div class="d-details-body">
-      <p class="d-loading-detail" style="color:#bbb;font-size:.85rem;font-style:italic">Loading ICD-11 details…</p>
-    </div>
     <div class="ai-info-block" id="${aiId}">
-      <p style="color:#bbb;font-size:.85rem;font-style:italic;margin-top:.75rem">Loading symptoms &amp; advice…</p>
+      <p style="color:#bbb;font-size:.85rem;font-style:italic;margin-top:.5rem">Loading…</p>
     </div>
     <div class="fda-block" id="${fdaId}">
-      <div class="fda-heading">💊 Related Medicines (OpenFDA)</div>
+      <div class="fda-heading">💊 Medication (OpenFDA)</div>
       <p style="font-size:.82rem;color:#bbb;font-style:italic">Loading…</p>
     </div>
   `;
 
   wrap.appendChild(card);
-  loadFDA(title, fdaId);
   loadAIInfo(title, aiId);
-
-  if (hit.id) {
-    loadEntityDetails(hit.id, cardId);
-  } else {
-    card.querySelector('.d-loading-detail')?.remove();
-  }
+  loadFDA(title, fdaId);
 }
 
 /* ══════════════════════════════════════
    WIKIPEDIA MEDICAL INFO  →  GET /api/disease-info
 ══════════════════════════════════════ */
 
-// Section display config — only show these 3 key groups
+// Only show description + symptoms
 const SECTION_CONFIG = [
-  { keys: ['signs and symptoms', 'symptoms'], label: 'Symptoms',              icon: '🤒', asList: true  },
-  { keys: ['treatment', 'management'],        label: 'Treatment & Medication', icon: '💊', asList: false },
-  { keys: ['complications'],                  label: 'See a Doctor If…',       icon: '⚠️', asList: true  },
-  { keys: ['prevention'],                     label: 'Prevention',             icon: '🛡️', asList: true  },
+  { keys: ['signs and symptoms', 'symptoms'], label: 'Symptoms', icon: '🤒', asList: true },
 ];
 
 async function loadAIInfo(diseaseName, sectionId) {
@@ -175,9 +163,6 @@ async function loadAIInfo(diseaseName, sectionId) {
         html += `<p class="d-text${isComplication ? ' ai-complication' : ''}">${esc(text)}</p>`;
       }
     });
-
-    // Medical advice footer
-    html += `<div class="ai-advice">💬 <strong>Advice:</strong> This information is for general awareness only. If you experience these symptoms, please consult a qualified healthcare professional for proper diagnosis and treatment.</div>`;
 
     sec.innerHTML = html;
   } catch (_) {
