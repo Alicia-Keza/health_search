@@ -1,6 +1,6 @@
-# MediSearch
+# HealthSearch
 
-A medical disease and symptom search web application built with Node.js, Express, and vanilla HTML/CSS/JS.
+HealthSearch is a web app that lets you search for diseases and check your symptoms. It pulls information from the WHO ICD-11 database, Wikipedia, and the FDA drug database to give you a description of the disease, its symptoms, and related medications.
 
 ---
 
@@ -8,7 +8,7 @@ A medical disease and symptom search web application built with Node.js, Express
 
 | Server | URL | Role |
 |--------|-----|------|
-| Load Balancer | https://healthsearch.aliciak.tech | Main entry point — share this |
+| Load Balancer | https://healthsearch.aliciak.tech | Main link |
 | Web01 | http://54.152.40.73 | Direct access |
 | Web02 | http://3.89.112.68 | Direct access |
 
@@ -18,21 +18,46 @@ A medical disease and symptom search web application built with Node.js, Express
 
 ## Features
 
-- **Disease Search** — Search the WHO ICD-11 global disease database by name. Returns the ICD-11 code, a short description, symptoms, and related medications.
-- **Medicine Lookup** — Each disease result automatically fetches related FDA-listed drugs from OpenFDA and displays them as a bullet list.
-- **Symptom Checker** — Select symptoms from a categorised checklist (General, Respiratory, Digestive, etc.) or type in any symptom not listed. Submit for an AI-powered analysis of possible conditions with descriptions and recommendations.
-- **View in Disease Search** — Any condition returned by the Symptom Checker has a button that jumps directly to the Disease Search tab and looks it up.
+- **Disease Search** — Search any disease by name and get a short description, symptoms, and medication.
+- **Symptom Checker** — Tick symptoms from a checklist or type your own to find possible conditions.
+- **Medicine Lookup** — Fetches related drugs from OpenFDA. If nothing is found, it falls back to Wikipedia's treatment section.
+- **Quick Search** — Shortcut buttons for common diseases like Malaria, Diabetes, and Hypertension.
+- **View in Disease Search** — Any condition from the symptom checker has a button that jumps to the disease search tab and looks it up.
+- **ICD-11 Code** — Each disease result shows its official WHO ICD-11 classification code.
+- **Error Handling** — Shows a clear message if something goes wrong or no results are found.
+- **Responsive** — Works on both desktop and mobile.
+
+---
+
+## Why a Backend?
+
+I used a Node.js backend instead of calling the APIs directly from the browser for two reasons. First, to keep the API keys safe — if I called the APIs from the frontend, anyone could see the keys in the browser. Second, some APIs like WHO ICD-11 block browser requests entirely, so the calls have to go through a server. The backend handles all the API calls and the browser only talks to my own routes.
 
 ---
 
 ## APIs Used
 
-| API | Purpose | Documentation |
-|-----|---------|---------------|
-| WHO ICD-11 | Disease search and ICD-11 codes | https://icd.who.int/icdapi |
-| Wikipedia REST API | Disease descriptions and symptom sections | https://en.wikipedia.org/api/rest_v1/ |
-| OpenFDA | Drug label and medicine data | https://open.fda.gov/apis/drug/label/ |
-| AI Medical Diagnosis API (RapidAPI) | AI-powered symptom analysis and condition matching | https://rapidapi.com/bilgisamapi-api2/api/ai-medical-diagnosis-api-symptoms-to-results |
+### 1. WHO ICD-11 API
+**Provider:** World Health Organization
+**Documentation:** https://icd.who.int/icdapi
+**Requires Key:** Yes — free registration (Client ID + Client Secret)
+**What it provides:** Disease search and ICD-11 codes. Also used for the symptom checker to find matching conditions.
+
+---
+
+### 2. Wikipedia REST API
+**Provider:** Wikimedia Foundation
+**Documentation:** https://en.wikipedia.org/api/rest_v1/
+**Requires Key:** No
+**What it provides:** Disease descriptions, symptoms, and treatment information.
+
+---
+
+### 3. OpenFDA
+**Provider:** U.S. Food and Drug Administration
+**Documentation:** https://open.fda.gov/apis/drug/label/
+**Requires Key:** Yes — free key at https://open.fda.gov/apis/
+**What it provides:** Drug names and medication information linked to a disease.
 
 ---
 
@@ -40,91 +65,107 @@ A medical disease and symptom search web application built with Node.js, Express
 
 ```
 health_search/
-├── .gitignore          ← root gitignore (covers entire project)
+├── .gitignore          ← excludes .env and node_modules from GitHub
 ├── README.md
 ├── Backend/
-│   ├── .env            ← API keys (NOT committed to GitHub)
+│   ├── .env            ← API keys (not on GitHub)
 │   ├── package.json
-│   └── server.js       ← Express server + all API proxy routes
+│   └── server.js       ← Express server, all API calls go through here
 └── Frontend/
     ├── index.html
     ├── styles.css
-    └── script.js       ← Calls /api/... only, no keys exposed in browser
+    └── script.js       ← only calls our own /api/... routes
 ```
 
 ---
 
 ## Running Locally
 
-**1. Clone the repository**
+**1. Clone the repo**
 ```bash
 git clone https://github.com/Alicia-Keza/health_search.git
 cd health_search
 ```
 
-**2. Install backend dependencies**
+**2. Install dependencies**
 ```bash
 cd Backend
 npm install
 ```
 
-**3. Configure environment variables**
-
-Create `Backend/.env` with your credentials:
+**3. Create a `.env` file inside `Backend/`**
 ```
 ICD_CLIENT_ID=your_icd_client_id
 ICD_CLIENT_SECRET=your_icd_client_secret
-RAPIDAPI_KEY=your_rapidapi_key
 OPENFDA_KEY=your_openfda_key
 PORT=3000
 ```
 
-- WHO ICD-11 credentials → register at https://icd.who.int/icdapi
-- RapidAPI key → subscribe to "AI Medical Diagnosis API" at https://rapidapi.com/bilgisamapi-api2/api/ai-medical-diagnosis-api-symptoms-to-results (free tier)
-- OpenFDA key → register at https://open.fda.gov/apis/ (optional — increases rate limit; works without one)
+Get your ICD-11 credentials at https://icd.who.int/icdapi and your OpenFDA key at https://open.fda.gov/apis/.
 
 **4. Start the server**
 ```bash
 npm start
 ```
 
-**5. Open your browser**
+**5. Open in browser**
 ```
 http://localhost:3000
-```
-
-For development with auto-restart on file changes:
-```bash
-npm run dev
 ```
 
 ---
 
 ## Deployment
 
-### Servers Used
+The app runs on two web servers (Web01 and Web02) with a load balancer (lb-01) in front that splits traffic between them.
 
-| Name | IP | OS |
-|------|----|----|
-| 7012-web-01 | 54.152.40.73 | Ubuntu |
-| 7012-web-02 | 3.89.112.68 | Ubuntu |
-| 7012-lb-01 | 44.210.131.60 | Ubuntu |
+### Architecture
+
+```
+User Browser
+     │
+     ▼
+https://healthsearch.aliciak.tech
+     │
+     ▼
+┌──────────────────────────────────┐
+│  lb-01  (44.210.131.60)          │
+│  HAProxy (SSL) + Nginx (routing) │
+│  Round-robin load balancer       │
+└──────────┬───────────────────────┘
+           │
+     ┌─────┴──────┐
+     ▼            ▼
+┌──────────┐  ┌──────────┐
+│  web-01  │  │  web-02  │
+│54.152... │  │ 3.89...  │
+│ Node+PM2 │  │ Node+PM2 │
+│  :3000   │  │  :3000   │
+└──────────┘  └──────────┘
+```
+
+### Servers
+
+| Name | IP | Role |
+|------|----|------|
+| 7012-web-01 | 54.152.40.73 | Web server |
+| 7012-web-02 | 3.89.112.68 | Web server |
+| 7012-lb-01 | 44.210.131.60 | Load balancer |
 
 ---
 
-### Step 1 — Set up Web01 (54.152.40.73)
+### Step 1 — Install Node.js and PM2 on Web01 and Web02
 
-```bash
-ssh ubuntu@54.152.40.73
-```
-
-Install Node.js and Nginx:
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs nginx
+sudo apt-get install -y nodejs
+sudo npm install -g pm2
 ```
 
-Clone the project and install dependencies:
+---
+
+### Step 2 — Deploy the App on Web01 and Web02
+
 ```bash
 cd /var/www
 sudo git clone https://github.com/Alicia-Keza/health_search.git
@@ -133,22 +174,23 @@ cd /var/www/health_search/Backend
 npm install
 ```
 
-Create the `.env` file manually (it is not on GitHub):
+Create the `.env` file manually (it's not on GitHub):
 ```bash
 nano /var/www/health_search/Backend/.env
 ```
-Paste your credentials, save and exit (`Ctrl+X → Y → Enter`).
+Paste your credentials and save with `Ctrl+X → Y → Enter`.
 
-Install PM2 to keep Node running after logout:
+Start the app with PM2:
 ```bash
-sudo npm install -g pm2
-cd /var/www/health_search/Backend
 pm2 start server.js --name health_search
 pm2 save
 pm2 startup
 ```
 
-Configure Nginx to proxy requests to Node:
+---
+
+### Step 3 — Set Up Nginx on Web01 and Web02
+
 ```bash
 sudo nano /etc/nginx/sites-available/health_search
 ```
@@ -173,61 +215,14 @@ sudo ln -s /etc/nginx/sites-available/health_search /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl restart nginx
-curl http://localhost   # should return the app HTML
 ```
 
 ---
 
-### Step 2 — Set up Web02 (3.89.112.68)
+### Step 4 — Set Up the Load Balancer (lb-01)
 
-```bash
-ssh ubuntu@3.89.112.68
-```
-
-Run the exact same commands as Web01:
-```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs nginx
-
-cd /var/www
-sudo git clone https://github.com/Alicia-Keza/health_search.git
-sudo chown -R ubuntu:ubuntu /var/www/health_search
-cd /var/www/health_search/Backend
-npm install
-
-nano /var/www/health_search/Backend/.env
-# paste credentials, save and exit
-
-sudo npm install -g pm2
-pm2 start server.js --name health_search
-pm2 save
-pm2 startup
-
-sudo nano /etc/nginx/sites-available/health_search
-# paste same Nginx config as Web01
-
-sudo ln -s /etc/nginx/sites-available/health_search /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
-curl http://localhost
-```
-
----
-
-### Step 3 — Set up Load Balancer (44.210.131.60)
-
-```bash
-ssh ubuntu@44.210.131.60
-```
-
-Install Nginx only (no Node needed on the load balancer):
 ```bash
 sudo apt-get install -y nginx
-```
-
-Configure load balancer:
-```bash
 sudo nano /etc/nginx/sites-available/health_search-lb
 ```
 
@@ -239,7 +234,7 @@ upstream health_search_backend {
 
 server {
     listen 80;
-    server_name _;
+    server_name healthsearch.aliciak.tech;
 
     location / {
         proxy_pass         http://health_search_backend;
@@ -255,72 +250,91 @@ server {
 sudo ln -s /etc/nginx/sites-available/health_search-lb /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
-sudo systemctl restart nginx
+sudo systemctl reload nginx
+```
+
+The `upstream` block tells Nginx to send requests to Web01 and Web02 in turns (round-robin).
+
+---
+
+### Step 5 — SSL (lb-01)
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d healthsearch.aliciak.tech
+```
+
+Certbot automatically sets up HTTPS and redirects HTTP traffic to HTTPS.
+
+---
+
+### Step 6 — Updating the App
+
+After pushing changes to GitHub, pull and restart on each server:
+```bash
+cd /var/www/health_search && git pull origin main && pm2 restart all --update-env
 ```
 
 ---
 
-### Step 4 — Verify Everything Works
+### Step 7 — Testing the Load Balancer
 
 ```bash
-curl http://54.152.40.73     # Web01 direct
-curl http://3.89.112.68      # Web02 direct
-curl http://44.210.131.60    # Load balancer
+curl -I http://54.152.40.73
+curl -I http://3.89.112.68
+curl -I https://healthsearch.aliciak.tech
 ```
 
-To confirm traffic is being balanced between both servers, open the Nginx access logs on each web server while hitting the load balancer URL from your browser:
+To confirm both servers are receiving traffic, open the logs on each server and refresh the site a few times:
 ```bash
-# On Web01
-sudo tail -f /var/log/nginx/access.log
-
-# On Web02
 sudo tail -f /var/log/nginx/access.log
 ```
-
-Refreshing http://44.210.131.60 multiple times should produce log entries on both servers.
+You should see requests appearing on both Web01 and Web02.
 
 ---
 
-## Challenges & How They Were Solved
+## Challenges
 
-**1. WHO ICD-11 OAuth token — CORS issue in the browser**
-The WHO token endpoint blocks direct browser requests due to CORS. Initially the plan was to call it from the frontend, which failed. The fix was to move all WHO ICD-11 authentication and API calls to the Express backend, where CORS is not a restriction. The browser now only talks to our own `/api/...` routes, and the backend handles the token silently.
+**1. Finding a free API with enough data**
+Most medical APIs I looked at were either paid or had very limited free tiers. I ended up using the WHO ICD-11 API because it is free and has the most complete disease data. I also added Wikipedia since it covers almost every disease and doesn't need a key.
 
-**2. Token expiry management**
-The WHO ICD-11 access token expires after one hour. Without caching, every search would require a fresh token fetch, slowing down the app. The solution was to cache the token in memory on the server and store its expiry timestamp, only fetching a new one when the old one is within 60 seconds of expiry.
+**2. Symptom checker API kept failing**
+I tried two different symptom checker APIs from RapidAPI. The first one got removed from the platform while I was building the project, and the second one ran out of free requests. In the end I used the ICD-11 search to match symptoms to conditions since I already had it set up.
 
-**3. OpenFDA returning unrelated drugs**
-Searching broad terms like "malaria" in the FDA database returned many unrelated results. The fix was to search specifically inside the `indications_and_usage` field using exact-match syntax, and limit results to 3 to keep the UI clean.
+**3. OpenFDA only has US drugs**
+A lot of diseases like Malaria don't show up in OpenFDA because it only covers FDA-approved US drugs. I added Wikipedia's treatment section as a backup so there is always some medication info shown.
 
-**4. ApiMedic removed from RapidAPI**
-The original symptom checker relied on ApiMedic via RapidAPI, which returned a 404 "API doesn't exists" error mid-development. Investigation confirmed the API had been delisted from the RapidAPI marketplace entirely. The fix was to switch to the AI Medical Diagnosis API (bilgisamapi), which accepts plain-text symptom arrays via POST, eliminating the need for a pre-loaded numeric symptom list and simplifying the frontend to a free-text tag input.
+**4. SSL wouldn't work on the original domain**
+The domain I had set up was `health_search.aliciak.tech` with an underscore. It turned out SSL certificates don't support underscores in domain names, so I had to create a new one — `healthsearch.aliciak.tech` — and get the certificate for that.
 
-**5. Keeping API keys off GitHub**
-Hardcoding keys in `script.js` would expose them in the public repository. The solution was to build an Express proxy server that reads keys from a `.env` file (excluded by `.gitignore`) and proxies all API calls, so the browser only ever sees our own backend routes.
+**5. API keys in a public repo**
+Since the repository is public, I couldn't put the API keys in the code. I stored them in a `.env` file that is listed in `.gitignore` so it never gets pushed to GitHub. I create the file manually on each server after deploying.
 
 ---
 
 ## Security
 
 - All API keys stored in `Backend/.env` — never committed to GitHub
-- `.gitignore` at both root and backend level excludes `.env` and `node_modules`
-- All API responses are HTML-escaped before rendering to prevent XSS attacks
-- Input validation on all backend routes — missing parameters return a 400 error
-- API calls proxied through our own backend so keys are never exposed client-side
+- All API calls go through the Express backend so keys are never visible in the browser
+- All data shown in the browser is HTML-escaped to prevent XSS attacks
+- All backend routes check for required parameters and return a 400 error if anything is missing
+- HTTPS enforced on the public domain via Let's Encrypt
 
 ---
 
-## Libraries & Tools Used
+## Tools Used
 
-| Tool | Purpose | Link |
-|------|---------|------|
-| Node.js | JavaScript runtime for the backend | https://nodejs.org |
-| Express | Web framework for API routing | https://expressjs.com |
-| node-fetch | HTTP client for server-side API calls | https://github.com/node-fetch/node-fetch |
-| dotenv | Loads environment variables from `.env` | https://github.com/motdotla/dotenv |
-| cors | Express middleware to allow cross-origin requests | https://github.com/expressjs/cors |
-| PM2 | Process manager to keep Node running on the server | https://pm2.keymetrics.io |
-| Nginx | Web server and load balancer | https://nginx.org |
+| Tool | Purpose |
+|------|---------|
+| Node.js | Backend runtime |
+| Express | Web server and routing |
+| node-fetch | Makes API calls from the server |
+| dotenv | Loads the `.env` file |
+| cors | Allows the frontend to talk to the backend |
+| PM2 | Keeps the app running on the server |
+| Nginx | Reverse proxy and load balancer |
+| HAProxy | SSL termination on the load balancer |
+| Let's Encrypt / Certbot | Free SSL certificate |
 
 ---
 
@@ -329,4 +343,3 @@ Hardcoding keys in `script.js` would expose them in the public repository. The s
 - [WHO ICD-11 API](https://icd.who.int/icdapi) — World Health Organization
 - [Wikipedia REST API](https://en.wikipedia.org/api/rest_v1/) — Wikimedia Foundation
 - [OpenFDA](https://open.fda.gov) — U.S. Food & Drug Administration
-- [AI Medical Diagnosis API](https://rapidapi.com/bilgisamapi-api2/api/ai-medical-diagnosis-api-symptoms-to-results) — bilgisamapi via RapidAPI

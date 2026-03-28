@@ -59,7 +59,7 @@ function renderDiseaseCard(hit) {
   loadFDA(title, fId, sId);
 }
 
-/* ── Description + Symptoms (Wikipedia) ── */
+/* ── Description + Symptoms  */
 async function loadSymptoms(name, aId, sId) {
   try {
     const data = await fetch(`/api/disease-info?name=${encodeURIComponent(name)}`).then(r => r.json());

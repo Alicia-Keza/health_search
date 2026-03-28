@@ -182,4 +182,4 @@ app.get('/api/drugs', async (req, res) => {
 /* ── Catch-all ── */
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '..', 'Frontend', 'index.html')));
 
-app.listen(PORT, () => console.log(`MediSearch running at http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`MediSearch running at http://localhost:${3000}`));
