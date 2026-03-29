@@ -19,11 +19,12 @@ HealthSearch is a web app that lets you search for diseases and check your sympt
 ## Features
 
 - **Disease Search** — Search any disease by name and get a short description, symptoms, and medication.
-- **Symptom Checker** — Tick symptoms from a checklist or type your own to find possible conditions.
-- **Medicine Lookup** — Fetches related drugs from OpenFDA. If nothing is found, it falls back to Wikipedia's treatment section.
+- **Symptom Checker** — Tick symptoms from a checklist or type your own to find possible conditions with descriptions.
+- **Medicine Lookup** — Fetches brand and generic drug names from OpenFDA. If nothing is found, it falls back to Wikipedia's treatment section.
 - **Quick Search** — Shortcut buttons for common diseases like Malaria, Diabetes, and Hypertension.
 - **View in Disease Search** — Any condition from the symptom checker has a button that jumps to the disease search tab and looks it up.
 - **ICD-11 Code** — Each disease result shows its official WHO ICD-11 classification code.
+- **Input Validation** — Disease search requires at least 3 characters and no special characters.
 - **Error Handling** — Shows a clear message if something goes wrong or no results are found.
 - **Responsive** — Works on both desktop and mobile.
 
@@ -68,9 +69,10 @@ health_search/
 ├── .gitignore          ← excludes .env and node_modules from GitHub
 ├── README.md
 ├── Backend/
-│   ├── .env            ← API keys (not on GitHub)
+│   ├── .env                ← API keys (not on GitHub)
 │   ├── package.json
-│   └── server.js       ← Express server, all API calls go through here
+│   ├── package-lock.json
+│   └── server.js           ← Express server, all API calls go through here
 └── Frontend/
     ├── index.html
     ├── styles.css
