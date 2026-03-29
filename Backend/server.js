@@ -63,16 +63,23 @@ app.post('/api/diagnosis', async (req, res) => {
     // Search ICD-11 for each symptom, collect unique conditions
     const seen = new Set();
     const conditions = [];
+    const wikiH = { 'User-Agent': 'HealthSearch/1.0 (educational project)', Accept: 'application/json' };
     for (const symptom of symptoms.slice(0, 6)) {
       const r = await fetch(`https://id.who.int/icd/release/11/2024-01/mms/search?q=${encodeURIComponent(symptom)}&useFlexisearch=true&flatResults=true`, { headers });
       if (!r.ok) continue;
       const data = await r.json();
       for (const hit of (data.destinationEntities || []).slice(0, 3)) {
         const name = hit.title?.replace(/<[^>]+>/g, '').trim();
-        if (name && !seen.has(name.toLowerCase())) {
-          seen.add(name.toLowerCase());
-          conditions.push({ name, description: hit.definition || '', probability: 'Possible' });
-        }
+        if (!name || seen.has(name.toLowerCase())) continue;
+        seen.add(name.toLowerCase());
+        // Get a short description from Wikipedia
+        const cleanName = name.replace(/,\s*(type\s+)?(un)?specified.*/i, '').replace(/\s+without\s+.*/i, '').trim();
+        let description = '';
+        try {
+          const wiki = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cleanName)}`, { headers: wikiH }).then(r => r.json());
+          if (wiki.extract) description = wiki.extract.split('.')[0] + '.';
+        } catch (_) {}
+        conditions.push({ name, description, probability: 'Possible' });
       }
     }
     res.json({ conditions: conditions.slice(0, 8) });
@@ -146,7 +153,7 @@ app.get('/api/disease-info', async (req, res) => {
       const cleanHtml = html.replace(/<ol class="references">[\s\S]*?<\/ol>/gi, '');
       const liItems = [...cleanHtml.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
         .map(m => stripTags(m[1]).trim())
-        .filter(s => s.length > 3 && s.length < 200 && !s.startsWith('^') && !s.includes('Cite error') && !s.includes('Retrieved'));
+        .filter(s => s.length > 3 && s.length < 80 && !s.startsWith('^') && !s.includes('Cite error') && !s.includes('Retrieved') && !s.includes('failure') && !s.includes('coma') && !s.includes('death'));
       if (liItems.length) {
         treatments = liItems.slice(0, 6);
       } else {
@@ -172,10 +179,18 @@ app.get('/api/drugs', async (req, res) => {
   try {
     const cleanQ = q.replace(/,\s*(type\s+)?(un)?specified.*/i, '').replace(/\s+without\s+.*/i, '').replace(/\s+with\s+.*/i, '').trim();
     const key = process.env.OPENFDA_KEY ? `&api_key=${process.env.OPENFDA_KEY}` : '';
-    const r   = await fetch(`https://api.fda.gov/drug/label.json?search=indications_and_usage:"${encodeURIComponent(cleanQ)}"&limit=3${key}`);
+    const r   = await fetch(`https://api.fda.gov/drug/label.json?search=indications_and_usage:"${encodeURIComponent(cleanQ)}"&limit=5${key}`);
     if (r.status === 404) return res.json({ results: [] });
     if (!r.ok) throw new Error(`OpenFDA error (${r.status})`);
-    res.json(await r.json());
+    const data = await r.json();
+    // Extract all brand and generic names, filter out nulls/undefined
+    const names = [...new Set(
+      (data.results || []).flatMap(d => [
+        ...(d.openfda?.brand_name || []),
+        ...(d.openfda?.generic_name || [])
+      ]).filter(n => n && n.trim().length > 1)
+    )].slice(0, 8);
+    res.json({ results: data.results || [], names });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

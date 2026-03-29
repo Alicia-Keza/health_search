@@ -23,6 +23,8 @@ const quickSearch = name => { $('disease-input').value = name; searchDisease(); 
 async function searchDisease() {
   const q = $('disease-input').value.trim();
   if (!q) return;
+  if (q.length < 3) { showError('d-error', 'Please enter at least 3 characters.'); return; }
+  if (/[^a-zA-Z0-9\s\-]/.test(q)) { showError('d-error', 'No special characters allowed. Use letters and numbers only.'); return; }
   $('disease-results').innerHTML = '';
   hideError('d-error'); showLoader('d-loader'); $('search-btn').disabled = true;
   try {
@@ -76,7 +78,7 @@ async function loadFDA(query, fId, sId) {
     const data = await fetch(`/api/drugs?q=${encodeURIComponent(query)}`).then(r => r.json());
     const sec  = $(fId);
     if (!sec) return;
-    const names = [...new Set((data.results||[]).flatMap(d => [d.openfda?.brand_name?.[0], d.openfda?.generic_name?.[0]].filter(Boolean)))].slice(0,6);
+    const names = data.names?.length ? data.names : [...new Set((data.results||[]).flatMap(d => [...(d.openfda?.brand_name||[]), ...(d.openfda?.generic_name||[])]).filter(Boolean))].slice(0,8);
     if (names.length) {
       sec.innerHTML = `<div class="d-section-label">💊 Medication</div><ul class="ai-list">${names.map(n=>`<li>${esc(n)}</li>`).join('')}</ul><p class="fda-note">Source: OpenFDA. Always consult a doctor before taking any medication.</p>`;
     } else {

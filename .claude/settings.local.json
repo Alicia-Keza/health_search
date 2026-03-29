@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://healthsearch.aliciak.tech/api/disease-info?name=Malaria\")",
+      "Bash(curl -s https://healthsearch.aliciak.tech/api/disease-info?name=Malaria)"
+    ]
+  }
+}
