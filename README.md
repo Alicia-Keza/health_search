@@ -12,7 +12,7 @@ HealthSearch is a web app that lets you search for diseases and check your sympt
 | Web01 | http://54.152.40.73 | Direct access |
 | Web02 | http://3.89.112.68 | Direct access |
 
-🎥 **Demo Video:** [link-to-your-video]
+🎥 **Demo Video:** [Watch on YouTube](https://youtu.be/dxANwGSQ044?si=OW71R_X1yffkV4Fy)
 
 ---
 
